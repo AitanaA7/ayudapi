@@ -1,0 +1,31 @@
+Genera un diagrama de arquitectura de software moderno y limpio, estilo "cloud architecture diagram", con bloques rectangulares, colores suaves y flechas direccionales con etiquetas. El diagrama debe representar el sistema "AyudAPI" con los siguientes componentes y sus relaciones:
+
+1. En la parte superior izquierda, un icono de "Usuario" (persona con un dispositivo móvil) que escanea un código QR.
+
+2. En el centro, el bloque principal "Vercel (Next.js)" que contiene:
+   - Frontend (React / Next.js)
+   - Backend (API Routes)
+   - Lógica de negocio
+   - CDN integrada (Vercel Edge Network)
+
+   Este bloque debe tener un estilo destacado (por ejemplo, color azul marino).
+
+3. Una flecha desde "Usuario" hacia "Vercel (Next.js)" con la etiqueta "Petición HTTPS / QR escaneado".
+
+4. Desde "Vercel (Next.js)" deben salir dos flechas:
+   - Hacia "Supabase" (un bloque que agrupa tres servicios: "PostgreSQL + PostGIS" (base de datos), "Auth" (autenticación con Google OAuth), "Realtime" (WebSockets)). La flecha debe tener etiqueta "Consultas SQL / JWT".
+   - Hacia "MinIO" (bloque de almacenamiento de objetos para archivos médicos). La flecha debe tener etiqueta "Subida / Descarga de archivos" y "URLs firmadas".
+
+5. Una flecha bidireccional entre "Vercel (Next.js)" y "MinIO" para indicar intercambio de archivos.
+
+6. Un bloque "Prometheus + Grafana" (monitorización) conectado a "Vercel (Next.js)" mediante una flecha con etiqueta "Métricas / Logs". Debe estar en la parte inferior o derecha, con estilo color verde.
+
+7. Un bloque "OpenCode" (agente de IA para desarrollo) debe aparecer en un costado, con una línea punteada hacia "Vercel (Next.js)" indicando "Asistencia en desarrollo / Generación de código". No debe estar en el flujo principal de producción.
+
+8. Todos los bloques deben tener nombres claros y legibles. Utiliza íconos representativos (nube, base de datos, candado, etc.) para cada servicio.
+
+9. Las flechas deben ser rectas o con curvas suaves, con cabezas de flecha claras, y los colores deben contrastar con el fondo (fondo blanco o gris muy claro).
+
+10. Añade una leyenda en la parte inferior derecha que explique los colores: Azul = Frontend/Backend, Verde = Monitorización, Naranja = Almacenamiento, Violeta = IA, Gris = Infraestructura.
+
+11. El diagrama debe ser simétrico, ordenado y profesional, apto para incluir en una documentación técnica.
