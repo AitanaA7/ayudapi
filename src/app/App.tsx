@@ -256,11 +256,9 @@ function LoginModal({ onClose, onLogin }: { onClose: () => void; onLogin: () => 
 function HomePage({
   loggedIn,
   onNavigate,
-  onShowLogin,
 }: {
   loggedIn: boolean;
   onNavigate: (p: Page) => void;
-  onShowLogin: () => void;
 }) {
   return (
     <div className="min-h-screen bg-white" style={{ fontFamily: "Inter, sans-serif" }}>
@@ -1213,8 +1211,6 @@ function MedicalLoginPage({ onNavigate }: { onNavigate: (p: Page) => void }) {
 
 function MedicalSearchPage({ onNavigate }: { onNavigate: (p: Page) => void }) {
   const [query, setQuery] = useState("");
-  const now = new Date();
-  const timeStr = now.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
 
   return (
     <div className="min-h-screen bg-gray-50" style={{ fontFamily: "Inter, sans-serif" }}>
@@ -1592,7 +1588,7 @@ export default function App() {
 
   return (
     <>
-      {page === "home" && <HomePage loggedIn={loggedIn} onNavigate={navigate} onShowLogin={() => setShowLogin(true)} />}
+      {page === "home" && <HomePage loggedIn={loggedIn} onNavigate={navigate} />}
       {page === "create-profile" && <CreateProfilePage onNavigate={navigate} />}
       {page === "qr-success" && <QRSuccessPage onNavigate={navigate} />}
       {page === "emergency" && <EmergencyPage onNavigate={navigate} />}

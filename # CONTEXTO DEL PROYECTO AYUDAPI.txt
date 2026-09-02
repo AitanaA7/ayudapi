@@ -1,0 +1,131 @@
+# CONTEXTO DEL PROYECTO AYUDAPI
+
+Eres un asistente experto en desarrollo de software. A partir de ahora, vas a ayudarme a desarrollar el módulo correspondiente del sistema AyudAPI. A continuación, te doy toda la información de contexto necesaria para que tus respuestas sean consistentes con el equipo.
+
+## 1. ¿Qué es AyudAPI?
+AyudAPI es un ecosistema de respuesta médica georreferenciada que utiliza códigos QR para permitir que intervinientes (terceros) y servicios de salud accedan a datos críticos de un paciente en emergencias. Funciona en Argentina.
+
+## 2. Modelo de 4 niveles de acceso
+- Nivel 1 (Público/Emergencia): alias, alertas críticas, contactos ICE. Visible al escanear el QR sin autenticación.
+- Nivel 2 (Privado/Usuario): perfil completo, configuraciones, revocación de tokens. Solo el paciente autenticado.
+- Nivel 3 (Institucional/API): grupo sanguíneo, estudios, medicación detallada. Solo médicos autenticados.
+- Nivel 4 (Analítico/Logs): datos anonimizados para dashboards de instituciones.
+
+## 3. Tecnologías y arquitectura
+- Frontend/Backend: Next.js (React + TypeScript) desplegado en Vercel.
+- Base de datos: PostgreSQL con extensión PostGIS alojada en Supabase.
+- Autenticación: Supabase Auth (email/contraseña + Google OAuth), tokens JWT, roles gestionados con RLS.
+- Almacenamiento de archivos: MinIO (S3-compatible) en instancias EC2, con URLs firmadas de 5 minutos.
+- Monitorización: Prometheus + Grafana en instancia separada.
+- Geolocalización: solo reactiva (captura GPS al presionar botón de alerta), sin rastreo permanente. Fallback a llamada telefónica (107/911).
+- IA de desarrollo: OpenCode (herramienta interna del equipo, no forma parte del producto).
+
+## 4. Modelo de datos (tablas principales)
+- usuarios (gestión Supabase Auth)
+- roles_usuario (paciente, medico, institucion, admin)
+- perfiles_paciente (alias, alergias, patologias, medicacion cifrada, grupo_sanguineo, contactos_emergencia, slug_qr, qr_activo)
+- perfiles_medico (matricula, especialidad, institucion_id, telefono_contacto)
+- perfiles_institucion (nombre, cuit, direccion, telefono, email_contacto)
+- pacientes_institucion (relación N:N entre paciente e institución)
+- tokens_qr (historial de slugs generados, con activo/revocado)
+- incidentes (alertas SAME/ICE con lat, lng, ubicacion POINT, timestamp, estado)
+- escaneos_qr (registro de cada escaneo, con rol_en_momento, usuario_id o null si anónimo, coordenadas)
+- atenciones (registro automático cuando un médico escanea el QR: medico_id, paciente_id, incidente_id opcional, fecha_atencion, motivo, diagnostico, derivacion, institucion_id)
+- registros_medicos (datos extendidos Nivel 3: grupo_sanguineo, estudios JSON, medicacion_completa cifrada, observaciones)
+- estudios (metadatos de archivos en MinIO: nombre_archivo, ruta_archivo, tamano_bytes, tipo_mime)
+- notificaciones (envíos de alertas a contactos ICE)
+- logs_auditoria (registro de accesos a datos sensibles: usuario_id, paciente_id, institucion_id, accion, direccion_ip, detalles)
+- dispositivos_push (opcional, para notificaciones push)
+
+## 5. Relaciones y restricciones clave
+- perfiles_paciente tiene 1:1 con usuarios y 1:N con incidentes, escaneos_qr, atenciones, tokens_qr, registros_medicos, estudios.
+- perfiles_medico tiene 1:1 con usuarios, N:1 con perfiles_institucion (opcional), y 1:N con atenciones, registros_medicos, estudios.
+- perfiles_institucion tiene 1:1 con usuarios, 1:N con perfiles_medico, y N:N con perfiles_paciente a través de pacientes_institucion.
+- incidentes tiene 1:N con notificaciones, y opcionalmente 1:N con atenciones (a través de incidente_id).
+- La tabla atenciones se crea automáticamente cuando un médico autenticado escanea el QR de un paciente. El incidente_id se asigna al incidente más reciente de ese paciente con estado 'enviado' (si existe).
+- Todos los accesos a registros_medicos y estudios deben quedar registrados en logs_auditoria.
+
+## 6. Roles y permisos por tabla (resumen)
+- Dev1 (Paciente/QR): escritura en perfiles_paciente, perfiles_medico, perfiles_institucion, pacientes_institucion, tokens_qr, roles_usuario, dispositivos_push. Lectura en esas mismas.
+- Dev2 (Emergencia): escritura en incidentes, notificaciones, escaneos_qr (para anónimos). Lectura de perfiles_paciente (solo campos públicos) y tokens_qr.
+- Dev3 (Institucional): escritura en atenciones, registros_medicos, estudios, logs_auditoria. Lectura en todas las tablas (con anonimización para dashboards). También configura Prometheus/Grafana y vistas materializadas.
+
+## 7. Endpoints clave por módulo
+### Dev1 (Paciente)
+- POST /api/auth/register (email/password con rol)
+- POST /api/auth/google (OAuth)
+- GET /api/profile (obtener perfil según rol)
+- PUT /api/profile (actualizar perfil)
+- POST /api/profile/paciente/asociar-institucion (solo paciente)
+- GET /api/qr/generate (generar nuevo slug y token)
+- DELETE /api/qr/revoke (revocar token activo)
+- GET /api/qr/download (descargar imagen PNG o SVG)
+- PUT /api/usuarios/:id/suspender (solo admin)
+
+### Dev2 (Emergencia)
+- GET /api/emergencia/:slug (datos Nivel 1, sin autenticación)
+- POST /api/emergencia/alerta-same (crear incidente SAME, capturar GPS)
+- POST /api/emergencia/alerta-ice (crear incidente ICE, enviar notificaciones a contactos)
+- POST /api/emergencia/fallback (cuando falla GPS o conexión, mostrar 107/911)
+- (implícito) registrar escaneo en escaneos_qr con rol 'interviniente' al llamar a cualquiera de estos endpoints.
+
+### Dev3 (Médico e Institucional)
+- POST /api/medico/login (o usar el mismo de Dev1)
+- GET /api/medico/paciente/:paciente_id (datos Nivel 3)
+- PUT /api/medico/paciente/:paciente_id/registros (actualizar registros_medicos)
+- POST /api/medico/paciente/:paciente_id/estudios (subir archivo a MinIO)
+- GET /api/medico/estudio/:estudio_id/download (URL firmada)
+- POST /api/medico/escaneo-qr (escaneo autenticado: crea escaneos_qr, atenciones y logs_auditoria)
+- GET /api/institucion/dashboard/metricas (métricas anonimizadas, filtradas por institución)
+- GET /api/institucion/dashboard/heatmap (para mapa de calor)
+- GET /api/audit/logs (solo admin)
+- GET /api/metrics (para Prometheus)
+
+## 8. Lógica automática crítica (Dev3)
+Cuando un médico autenticado llama a POST /api/medico/escaneo-qr con un slug:
+- Buscar paciente en perfiles_paciente por slug_qr y que qr_activo = true.
+- Buscar el incidente más reciente de ese paciente con estado = 'enviado' (si existe).
+- Crear registro en escaneos_qr (rol = 'medico', usuario_id = médico).
+- Crear registro en atenciones con:
+  medico_id = médico autenticado
+  paciente_id = paciente
+  incidente_id = (el encontrado o NULL)
+  fecha_atencion = ahora
+  institucion_id = (del perfil del médico, si tiene)
+  motivo, diagnostico, derivacion = NULL (para completar después)
+- Crear registro en logs_auditoria con accion = 'atencion_emergencia'.
+- Devolver datos del paciente (Nivel 1 + Nivel 3) y el id de la atención.
+
+## 9. Reglas de geolocalización
+- Solo se captura GPS al presionar un botón de alerta (no hay rastreo permanente).
+- Si falla GPS o conexión, se activa fallback mostrando número 107/911.
+- Las coordenadas se guardan en incidentes (lat/lng y punto PostGIS) y en escaneos_qr (si se obtienen).
+
+## 10. Cumplimiento legal
+- Ley 25.326 de Protección de Datos Personales: cifrado de columnas sensibles (medicacion, medicacion_completa), anonimización en dashboards, logs de auditoría con registro de accesos.
+- Código Penal: artículos 34 (Estado de Necesidad) y 108 (Obligación de Socorro) deben mostrarse en la página de emergencia.
+
+## 11. Roles y autenticación
+- Supabase Auth maneja la autenticación primaria (email/password, Google OAuth).
+- Los roles se almacenan en roles_usuario.
+- JWT se valida en cada petición a la API. El rol se extrae del token o se consulta en roles_usuario.
+- Políticas RLS en PostgreSQL para garantizar que cada usuario solo vea/edite lo que le corresponde según su rol.
+
+## 12. Estilo de desarrollo
+- Usar TypeScript con tipos estrictos.
+- API Routes de Next.js (App Router).
+- Conexión a Supabase con @supabase/supabase-js.
+- Variables de entorno: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, MINIO_ENDPOINT, etc.
+- Código modular, componentes reutilizables, mantener consistencia con el resto del equipo.
+
+## 13. Mi rol (el desarrollador que está hablando contigo)
+Indícame cuál es mi rol (Dev1, Dev2 o Dev3) antes de continuar, para que sepas qué endpoints debo implementar y qué lógica me corresponde.
+
+## 14. Formato de respuestas esperado
+- Cuando te pida un endpoint, dame: método, ruta, autenticación, roles permitidos, parámetros, ejemplo de cuerpo y respuesta, y la lógica de negocio paso a paso.
+- Cuando te pida un fragmento de código, prioriza TypeScript y buenas prácticas, con comentarios claros.
+- Si te pido ayuda con la base de datos, dame la consulta SQL o el código de Supabase correspondiente.
+- Siempre mantené coherencia con el contexto y los roles definidos.
+-"Después de realizar cualquier modificación en el código fuente, ejecuta automáticamente npm run lint. Si el linter devuelve errores o advertencias, corrígelos antes de finalizar."
+
+Ahora que tienes todo el contexto, dime qué rol soy (Dev1, Dev2 o Dev3) y qué necesitas que te ayude a construir. Si tengo dudas sobre algún aspecto, te preguntaré antes de generar código.
