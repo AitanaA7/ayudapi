@@ -83,7 +83,6 @@ function ElegirRolContenido() {
   const [codigoMedico, setCodigoMedico] = useState("");
   const [cuit, setCuit] = useState("");
   const [dni, setDni] = useState("");
-  const [documentacion, setDocumentacion] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [especialidad, setEspecialidad] = useState("");
   const [guardando, setGuardando] = useState(false);
@@ -205,7 +204,6 @@ function ElegirRolContenido() {
       return {
         codigo_invitacion: codigoInvitacion.trim() || undefined,
         cuit: cuit.trim() || undefined,
-        documentacion: documentacion.trim() || undefined,
         nombre: nombreInstitucion.trim() || undefined,
       };
     }
@@ -252,9 +250,6 @@ function ElegirRolContenido() {
       }
       if (!esCuitValido(cuit)) {
         return "El CUIT debe tener 11 dígitos.";
-      }
-      if (documentacion.trim().length === 0) {
-        return "La documentación de respaldo es obligatoria.";
       }
       if (codigoInvitacion.trim().length === 0) {
         return "El código de invitación institucional es obligatorio. Solicitalo a un administrador.";
@@ -527,19 +522,6 @@ function ElegirRolContenido() {
                 type="text"
                 value={cuit}
               />
-            </div>
-            <div>
-              <label className="text-sm font-medium text-gray-700 block mb-1">
-                Documentación de respaldo <span className="text-blue-600">*</span>
-              </label>
-              <textarea
-                className={`${inputClass} resize-none`}
-                onChange={(e) => setDocumentacion(e.target.value)}
-                placeholder={"Una referencia por línea. Ej:\nHabilitación provincial Nº 4521\nInscripción registro RENIS"}
-                rows={3}
-                value={documentacion}
-              />
-              <p className="text-xs text-gray-400 mt-1">Constancias de habilitación, matrícula institucional, etc.</p>
             </div>
             <div>
               <label className="text-sm font-medium text-gray-700 block mb-1">
