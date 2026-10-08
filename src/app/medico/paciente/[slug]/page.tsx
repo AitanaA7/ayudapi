@@ -184,7 +184,7 @@ function PanelPacienteClinico({ session, slug }: PanelProps) {
   return (
     <div className="min-h-screen bg-gray-50" style={{ fontFamily: "Inter, sans-serif" }}>
       <header className="bg-white border-b border-gray-100 sticky top-0 z-40">
-        <div className="max-w-3xl mx-auto px-4 flex items-center justify-between h-14">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 flex items-center justify-between h-14">
           <div className="flex items-center gap-2 min-w-0">
             <Link className="text-gray-400 hover:text-gray-600" href="/medico/escanear">
               <ChevronLeft size={18} />
@@ -207,7 +207,7 @@ function PanelPacienteClinico({ session, slug }: PanelProps) {
         </div>
       </header>
 
-      <div className="max-w-3xl mx-auto px-4 pb-20">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 pb-20">
         {loading && (
           <div className="flex items-center justify-center py-24">
             <Loader2 className="animate-spin text-blue-600" size={28} />
@@ -323,7 +323,7 @@ function PanelPacienteClinico({ session, slug }: PanelProps) {
                         Condiciones y alergias
                       </h3>
                       {condiciones.length > 0 ? (
-                        <div className="space-y-2">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
                           {condiciones.map((c, i) => (
                             <div
                               className={cn(
@@ -377,26 +377,26 @@ function PanelPacienteClinico({ session, slug }: PanelProps) {
                           <Phone className="text-gray-500" size={15} /> Contactos
                           de emergencia
                         </h3>
-                        <div className="space-y-2">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
                           {paciente.contactos_emergencia?.map((c) => (
                             <div
-                              className="flex items-center justify-between py-2.5 border-b border-gray-100 last:border-0"
+                              className="flex items-center justify-between p-3 border border-gray-100 rounded-xl bg-gray-50/50"
                               key={c.nombre}
                             >
-                              <div className="flex items-center gap-2">
-                                <div className="w-7 h-7 bg-gray-100 rounded-full flex items-center justify-center">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <div className="w-7 h-7 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0">
                                   <Phone className="text-gray-500" size={13} />
                                 </div>
-                                <div>
-                                  <p className="text-sm font-semibold text-gray-900">
+                                <div className="min-w-0">
+                                  <p className="text-sm font-semibold text-gray-900 truncate">
                                     {c.nombre}
                                   </p>
-                                  <p className="text-xs text-gray-500">{c.relacion}</p>
+                                  <p className="text-xs text-gray-500 truncate">{c.relacion}</p>
                                 </div>
                               </div>
                               {c.telefono && (
                                 <a
-                                  className="text-sm font-mono text-blue-600 hover:text-blue-700"
+                                  className="text-sm font-mono text-blue-600 hover:text-blue-700 flex-shrink-0 ml-2"
                                   href={`tel:${c.telefono.replace(/[^\d+]/g, "")}`}
                                 >
                                   {c.telefono}
@@ -423,7 +423,7 @@ function PanelPacienteClinico({ session, slug }: PanelProps) {
                       </h3>
                     </div>
                     {paciente.medicacion && paciente.medicacion.length > 0 ? (
-                      <div className="space-y-3">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         {paciente.medicacion.map((m, i) => (
                           <div
                             className="border border-gray-100 rounded-xl p-4"
@@ -483,7 +483,7 @@ function PanelPacienteClinico({ session, slug }: PanelProps) {
                       <div className="space-y-2">
                         {estudios.map((e) => (
                           <div
-                            className="flex items-center justify-between border border-gray-100 rounded-xl px-4 py-3.5 hover:bg-gray-50 transition-colors"
+                            className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border border-gray-100 rounded-xl px-4 py-3.5 hover:bg-gray-50 transition-colors"
                             key={e.id}
                           >
                             <div className="flex items-center gap-3 min-w-0">
@@ -507,7 +507,7 @@ function PanelPacienteClinico({ session, slug }: PanelProps) {
                             </div>
                             {e.url_acceso && (
                               <a
-                                className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-700 whitespace-nowrap"
+                                className="self-end sm:self-auto flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-700 whitespace-nowrap"
                                 href={e.url_acceso}
                                 rel="noopener noreferrer"
                                 target="_blank"

@@ -467,7 +467,7 @@ function PanelInstitucional({ session }: PanelProps) {
 
     return (
       <div className="space-y-6">
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           {stats.map((s) => (
             <StatCard key={s.label} {...s} />
           ))}
@@ -1000,7 +1000,7 @@ onClick={() => recargarLogs()}
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-3 flex-shrink-0">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3 flex-shrink-0">
               <span className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap">
                 <Shield size={11} /> Datos anonimizados
               </span>

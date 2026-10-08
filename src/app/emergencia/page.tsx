@@ -39,18 +39,18 @@ export default function EmergencyPage() {
   return (
     <div className="min-h-screen bg-[#0F1929] flex flex-col items-center" style={{ fontFamily: "Inter, sans-serif" }}>
       <PreviewNav />
-      <div className="w-full max-w-sm">
-        {/* Barra de emergencia (rojo reservado exclusivamente para emergencias) */}
-        <div className="bg-red-600 px-4 py-3 text-center">
+      <div className="w-full max-w-lg md:max-w-2xl px-3 sm:px-6 py-4 sm:py-8 transition-all">
+        {/* Barra de emergencia */}
+        <div className="bg-red-600 rounded-t-2xl px-4 py-3.5 text-center shadow-md">
           <div className="flex items-center justify-center gap-2 mb-0.5">
-            <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
-            <span className="text-white text-xs font-black tracking-widest uppercase">Perfil de emergencia activo</span>
-            <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
+            <span className="w-2.5 h-2.5 bg-white rounded-full animate-pulse" />
+            <span className="text-white text-xs sm:text-sm font-black tracking-widest uppercase">Perfil de emergencia activo</span>
+            <span className="w-2.5 h-2.5 bg-white rounded-full animate-pulse" />
           </div>
-          <p className="text-white/80 text-xs">AyudAPI · Sistema de Asistencia Médica</p>
+          <p className="text-white/80 text-xs">AyudAPI · Sistema de Asistencia Médica (Demo interactiva)</p>
         </div>
 
-        <div className="px-3 py-3 space-y-3">
+        <div className="bg-[#142132] rounded-b-2xl px-4 sm:px-6 py-5 space-y-4 shadow-xl border border-white/5">
           <div className="bg-white rounded-2xl p-4">
             <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-2">Persona que necesita asistencia</p>
             <div className="flex items-center gap-3">

@@ -83,8 +83,8 @@ export default function HomePage() {
           </div>
         </div>
 
-        <div className="relative bg-[#0F1929] border-t border-white/10 hidden sm:block">
-          <div className="max-w-7xl mx-auto px-6 py-4 grid grid-cols-4 gap-4">
+        <div className="relative bg-[#0F1929] border-t border-white/10 block">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
             {[
               { icon: <Zap className="text-blue-400" size={14} />, value: "50%", label: "Reducción en tiempo de respuesta" },
               { icon: <Heart className="text-blue-400 fill-blue-400" size={14} />, value: "847", label: "Vidas asistidas en 2025" },

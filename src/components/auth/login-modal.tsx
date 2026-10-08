@@ -1,7 +1,7 @@
 "use client";
 
 import { Loader2, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import type { RolUsuario } from "@/lib/supabase/database";
 
@@ -41,6 +41,18 @@ export function LoginModal({ onClose, redirectTo }: LoginModalProps) {
   const [cargando, setCargando] = useState<ModoGoogle | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [onClose]);
+
   async function iniciarGoogle(modo: ModoGoogle) {
     setError(null);
     setCargando(modo);
@@ -69,8 +81,15 @@ export function LoginModal({ onClose, redirectTo }: LoginModalProps) {
   const ocupado = cargando !== null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white rounded-2xl w-full max-w-md p-8 relative shadow-2xl">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3 sm:p-4 backdrop-blur-xs"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+    >
+      <div className="bg-white rounded-2xl w-full max-w-md p-6 sm:p-8 relative shadow-2xl mx-auto transition-all">
         <button
           aria-label="Cerrar"
           className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"

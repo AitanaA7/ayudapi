@@ -58,7 +58,7 @@ export default function QrSuccessPage() {
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4" style={{ fontFamily: "Inter, sans-serif" }}>
-      <div className="bg-white rounded-3xl shadow-xl w-full max-w-sm p-8">
+      <div className="bg-white rounded-3xl shadow-xl w-full max-w-md sm:max-w-lg p-6 sm:p-8 transition-all">
         <div className="flex justify-center mb-4">
           <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center">
             <Check className="text-green-600 stroke-[2.5]" size={28} />
@@ -88,11 +88,11 @@ export default function QrSuccessPage() {
         {!loading && qr && (
           <>
             <div className="flex justify-center mb-2">
-              <div className="border border-gray-100 rounded-2xl p-4">
+              <div className="border border-gray-100 rounded-2xl p-4 bg-gray-50/50">
                 <QRCodeSVG level="H" size={160} value={qr.url_publica} />
               </div>
             </div>
-            <p className="text-xs text-gray-400 text-center mb-5">{qr.url_publica}</p>
+            <p className="text-xs text-gray-400 text-center mb-5 break-all">{qr.url_publica}</p>
 
             <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-5">
               <p className="text-xs font-bold text-blue-800 mb-1">Token de seguridad</p>
@@ -105,13 +105,15 @@ export default function QrSuccessPage() {
             </div>
 
             <div className="space-y-2.5">
-              <button className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition-colors text-sm" onClick={handleDownload}>
-                <Download size={16} /> Descargar QR (PNG)
-              </button>
-              <button className="w-full flex items-center justify-center gap-2 border border-gray-200 hover:bg-gray-50 text-gray-700 font-semibold py-3 rounded-xl transition-colors text-sm" onClick={handleShare}>
-                <Share2 size={16} /> Copiar enlace de emergencia
-              </button>
-              <Link className="w-full flex items-center justify-center gap-2 border border-gray-200 hover:bg-blue-50 text-blue-600 font-semibold py-3 rounded-xl transition-colors text-sm" href={`/e/${qr.slug}`}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <button className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition-colors text-sm" onClick={handleDownload}>
+                  <Download size={16} /> Descargar (PNG)
+                </button>
+                <button className="w-full flex items-center justify-center gap-2 border border-gray-200 hover:bg-gray-50 text-gray-700 font-semibold py-3 rounded-xl transition-colors text-sm" onClick={handleShare}>
+                  <Share2 size={16} /> Copiar enlace
+                </button>
+              </div>
+              <Link className="w-full flex items-center justify-center gap-2 border border-blue-200 bg-blue-50/50 hover:bg-blue-50 text-blue-700 font-semibold py-3 rounded-xl transition-colors text-sm" href={`/e/${qr.slug}`}>
                 <Eye size={16} /> Ver cómo me verán en emergencia
               </Link>
               <Link className="w-full flex items-center justify-center gap-2 border border-gray-200 hover:bg-gray-50 text-gray-700 font-semibold py-3 rounded-xl transition-colors text-sm" href="/mi-perfil">

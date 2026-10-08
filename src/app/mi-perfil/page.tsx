@@ -93,22 +93,24 @@ export default function MiPerfilPage() {
 
   if (!session) {
     return (
-      <div className="min-h-screen bg-gray-50" style={{ fontFamily: "Inter, sans-serif" }}>
+      <div className="min-h-screen bg-gray-50 flex flex-col" style={{ fontFamily: "Inter, sans-serif" }}>
         <Navbar />
-        <div className="max-w-md mx-auto px-4 py-24 text-center">
-          <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-6">
-            <Lock className="text-blue-600" size={28} />
+        <div className="w-full max-w-md sm:max-w-lg mx-auto px-4 py-16 sm:py-24 text-center my-auto">
+          <div className="bg-white rounded-2xl border border-gray-100 p-6 sm:p-8 shadow-sm">
+            <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-5">
+              <Lock className="text-blue-600" size={28} />
+            </div>
+            <h1 className="text-2xl font-extrabold text-gray-900 mb-2">Sesión requerida</h1>
+            <p className="text-gray-500 text-sm mb-6 leading-relaxed">
+              Iniciá sesión para ver y administrar tu perfil médico y tu código QR.
+            </p>
+            <button
+              className="inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-xl transition-colors w-full sm:w-auto"
+              onClick={() => setShowLogin(true)}
+            >
+              <LogIn size={16} /> Iniciar sesión
+            </button>
           </div>
-          <h1 className="text-2xl font-extrabold text-gray-900 mb-2">Sesión requerida</h1>
-          <p className="text-gray-500 text-sm mb-6">
-            Iniciá sesión para ver y administrar tu perfil médico y tu código QR.
-          </p>
-          <button
-            className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-xl transition-colors"
-            onClick={() => setShowLogin(true)}
-          >
-            <LogIn size={16} /> Iniciar sesión
-          </button>
         </div>
         {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}
       </div>
@@ -195,14 +197,14 @@ export default function MiPerfilPage() {
   return (
     <div className="min-h-screen bg-gray-50" style={{ fontFamily: "Inter, sans-serif" }}>
       <Navbar />
-      <div className="max-w-3xl mx-auto px-4 py-8">
-        <div className="flex items-center justify-between mb-6">
+      <div className="w-full max-w-3xl sm:max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <div>
             <h1 className="text-2xl font-extrabold text-gray-900">Mi perfil</h1>
             <p className="text-sm text-gray-500">Nivel 2 · Solo vos podés ver y editar estos datos</p>
           </div>
           <Link
-            className="flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+            className="inline-flex items-center justify-center gap-1 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors w-full sm:w-auto"
             href="/crear-perfil"
           >
             Editar perfil <ChevronRight size={14} />

@@ -95,7 +95,7 @@ function EscaneoFila({
   const { alias, creado_en, disponible, grupo_sanguineo, nombre_completo, slug } =
     escaneo;
   const contenido = (
-    <>
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 flex-1 min-w-0">
       <div className="flex items-center gap-3 min-w-0">
         <div className="w-9 h-9 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0">
           <Clock className="text-gray-500" size={15} />
@@ -107,7 +107,7 @@ function EscaneoFila({
           <p className="text-xs text-gray-500">{formatearEscaneo(creado_en)}</p>
         </div>
       </div>
-      <div className="flex items-center gap-2 flex-shrink-0">
+      <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap flex-shrink-0">
         {grupo_sanguineo && (
           <span className="flex items-center gap-1 bg-red-50 border border-red-200 text-red-700 text-xs font-bold px-2 py-0.5 rounded-full">
             <Heart className="fill-red-700" size={9} /> {grupo_sanguineo}
@@ -123,7 +123,7 @@ function EscaneoFila({
           </span>
         )}
       </div>
-    </>
+    </div>
   );
 
   if (disponible && slug) {
@@ -138,7 +138,7 @@ function EscaneoFila({
     );
   }
 
-  return <div className="opacity-80">{contenido}</div>;
+  return <div className="border border-transparent px-4 py-3.5 opacity-80">{contenido}</div>;
 }
 
 export default function MedicoEscanearPage() {
@@ -295,7 +295,7 @@ export default function MedicoEscanearPage() {
   return (
     <div className="min-h-screen bg-gray-50" style={{ fontFamily: "Inter, sans-serif" }}>
       <header className="bg-white border-b border-gray-100 sticky top-0 z-40">
-        <div className="max-w-3xl mx-auto px-4 flex items-center justify-between h-14">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 flex items-center justify-between h-14">
           <div className="flex items-center gap-2 min-w-0">
             <Link className="text-gray-400 hover:text-gray-600" href="/">
               <ChevronLeft size={18} />
@@ -315,10 +315,11 @@ export default function MedicoEscanearPage() {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-3 flex-shrink-0">
-            <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold px-3 py-1 rounded-full">
+          <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+            <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold px-2.5 sm:px-3 py-1 rounded-full">
               <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
-              Sesión activa
+              <span className="hidden xs:inline">Sesión activa</span>
+              <span className="xs:hidden">Activo</span>
             </div>
             <button
               aria-label="Cerrar sesión"
@@ -331,7 +332,7 @@ export default function MedicoEscanearPage() {
         </div>
       </header>
 
-      <div className="max-w-3xl mx-auto px-4 py-6">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6">
         {medico && esMedicoPendienteInformativo(medico.perfil) && (
           <div className="bg-blue-50 border border-blue-200 rounded-2xl px-4 py-3 mb-6 flex items-start gap-2">
             <Shield className="text-blue-600 flex-shrink-0 mt-0.5" size={14} />
@@ -346,7 +347,7 @@ export default function MedicoEscanearPage() {
             </p>
           </div>
         )}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-6 flex items-center justify-between gap-4">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-5 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-11 h-11 bg-blue-50 rounded-full flex items-center justify-center flex-shrink-0">
               <Stethoscope className="text-blue-600" size={20} />
@@ -366,12 +367,12 @@ export default function MedicoEscanearPage() {
               </p>
             </div>
           </div>
-          <span className="flex items-center gap-1.5 border border-emerald-300 text-emerald-700 text-xs font-semibold px-3 py-1 rounded-full flex-shrink-0">
+          <span className="self-start sm:self-auto flex items-center gap-1.5 border border-emerald-300 text-emerald-700 text-xs font-semibold px-3 py-1 rounded-full flex-shrink-0">
             <Shield size={11} /> Acceso auditado
           </span>
         </div>
 
-        <section className="rounded-2xl text-white p-5 mb-6" style={{ background: "#2563EB" }}>
+        <section className="rounded-2xl text-white p-5 sm:p-7 mb-6" style={{ background: "#2563EB" }}>
           <div className="text-center mb-4">
             <div className="w-16 h-16 bg-white/15 rounded-2xl flex items-center justify-center mx-auto mb-4">
               <Search className="text-white" size={28} />

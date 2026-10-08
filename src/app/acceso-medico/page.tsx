@@ -60,7 +60,7 @@ export default function AccesoMedicoPage() {
         className="min-h-screen flex flex-col items-center justify-center px-4 py-12"
         style={{ background: "#0F1929", fontFamily: "Inter, sans-serif" }}
       >
-        <div className="w-full max-w-sm text-center">
+        <div className="w-full max-w-sm sm:max-w-md text-center">
           <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-5 bg-amber-500/20">
             <UserX className="text-amber-400" size={26} />
           </div>
@@ -108,7 +108,7 @@ export default function AccesoMedicoPage() {
       className="min-h-screen flex flex-col items-center justify-center px-4 py-12"
       style={{ background: "#0F1929", fontFamily: "Inter, sans-serif" }}
     >
-      <div className="w-full max-w-sm">
+      <div className="w-full max-w-sm sm:max-w-md md:max-w-lg transition-all">
         <div className="flex justify-center mb-5">
           <div
             className="w-14 h-14 rounded-2xl flex items-center justify-center"
@@ -118,7 +118,7 @@ export default function AccesoMedicoPage() {
           </div>
         </div>
 
-        <h1 className="text-3xl font-extrabold text-white text-center mb-1">
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-white text-center mb-1">
           Acceso médico profesional
         </h1>
         <p className="text-blue-200/70 text-sm text-center mb-8">
@@ -126,7 +126,7 @@ export default function AccesoMedicoPage() {
           <span className="text-blue-300">salud certificado</span>
         </p>
 
-        <div className="bg-white rounded-2xl p-6 shadow-2xl">
+        <div className="bg-white rounded-2xl p-6 sm:p-8 shadow-2xl">
           <div className="space-y-3 mb-5">
             <div className="flex items-center gap-3 border border-gray-100 rounded-xl p-3">
               <div className="w-9 h-9 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0">

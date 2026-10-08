@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 
 import type { PerfilMedicoRow, RolUsuario } from "@/lib/supabase/database";
 
+import { ResponsiveSelect } from "@/components/shared/responsive-select";
 import { ApiError, apiFetch } from "@/lib/api/client";
 import { RUTA_DESTINO_KEY } from "@/lib/auth/destino";
 import { useRol } from "@/lib/auth/use-rol";
@@ -215,10 +216,10 @@ export default function CompletarPerfilMedicoPage() {
 
   return (
     <div
-      className="min-h-screen flex flex-col items-center px-4 py-12"
+      className="min-h-screen flex flex-col items-center px-4 py-8 sm:py-12"
       style={{ background: "#0F1929", fontFamily: "Inter, sans-serif" }}
     >
-      <div className="w-full max-w-sm">
+      <div className="w-full max-w-md sm:max-w-xl">
         <div className="flex justify-center mb-5">
           <div
             className="w-14 h-14 rounded-2xl flex items-center justify-center"
@@ -228,14 +229,14 @@ export default function CompletarPerfilMedicoPage() {
           </div>
         </div>
 
-        <h1 className="text-2xl font-extrabold text-white text-center mb-1">
+        <h1 className="text-xl sm:text-2xl font-extrabold text-white text-center mb-1">
           Completá tus datos profesionales
         </h1>
-        <p className="text-blue-200/70 text-sm text-center mb-8">
+        <p className="text-blue-200/70 text-xs sm:text-sm text-center mb-6 sm:mb-8">
           Son obligatorios para operar con acceso auditado (Ley 25.326)
         </p>
 
-        <div className="bg-white rounded-2xl p-6 shadow-2xl">
+        <div className="bg-white rounded-2xl p-5 sm:p-7 md:p-8 shadow-2xl">
           {cargandoDatos ? (
             <div className="flex flex-col items-center py-8">
               <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mb-3" />
@@ -261,21 +262,37 @@ export default function CompletarPerfilMedicoPage() {
           ) : (
             <>
               <div className="space-y-4 mb-5">
-                <div>
-                  <label className="text-sm font-medium text-gray-700 block mb-1">
-                    DNI <span className="text-blue-600">*</span>
-                  </label>
-                  <input
-                    className={inputClass}
-                    disabled={salvando}
-                    inputMode="numeric"
-                    maxLength={8}
-                    onChange={(e) => setDni(e.target.value.replace(/\D/g, "").slice(0, 8))}
-                    placeholder="30123456 (7 u 8 dígitos, sin puntos)"
-                    type="text"
-                    value={dni}
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 block mb-1">
+                      DNI <span className="text-blue-600">*</span>
+                    </label>
+                    <input
+                      className={inputClass}
+                      disabled={salvando}
+                      inputMode="numeric"
+                      maxLength={8}
+                      onChange={(e) => setDni(e.target.value.replace(/\D/g, "").slice(0, 8))}
+                      placeholder="30123456 (7 u 8 dígitos, sin puntos)"
+                      type="text"
+                      value={dni}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 block mb-1">
+                      Teléfono de contacto <span className="text-blue-600">*</span>
+                    </label>
+                    <input
+                      className={inputClass}
+                      disabled={salvando}
+                      onChange={(e) => setTelefono(e.target.value)}
+                      placeholder="+54 11 XXXX-XXXX"
+                      type="tel"
+                      value={telefono}
+                    />
+                  </div>
                 </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-sm font-medium text-gray-700 block mb-1">
@@ -285,7 +302,7 @@ export default function CompletarPerfilMedicoPage() {
                       className={inputClass}
                       disabled={salvando}
                       onChange={(e) => setMatricula(e.target.value)}
-                      placeholder="MP 123456 / MN 789012 (o código si está en trámite)"
+                      placeholder="MP 123456 / MN 789012"
                       type="text"
                       value={matricula}
                     />
@@ -294,60 +311,49 @@ export default function CompletarPerfilMedicoPage() {
                     <label className="text-sm font-medium text-gray-700 block mb-1">
                       Jurisdicción <span className="text-blue-600">*</span>
                     </label>
-                    <select
-                      className={inputClass}
+                    <ResponsiveSelect
                       disabled={salvando}
-                      onChange={(e) => setJurisdiccion(e.target.value)}
+                      onChange={setJurisdiccion}
+                      options={[
+                        { label: "Seleccionar", value: "" },
+                        ...JURISDICCIONES_SISA,
+                      ]}
+                      placeholder="Seleccionar"
                       value={jurisdiccion}
-                    >
-                      <option value="">Seleccionar</option>
-                      {JURISDICCIONES_SISA.map((j) => (
-                        <option key={j} value={j}>{j}</option>
-                      ))}
-                    </select>
+                    />
                   </div>
                 </div>
                 <p className="text-xs text-gray-400">Tu credencial se verifica contra el padrón SISA/REFEPS. Sin coincidencia, el alta se bloquea.</p>
-                <div>
-                  <label className="text-sm font-medium text-gray-700 block mb-1">
-                    Código de invitación de médico
-                  </label>
-                  <input
-                    className={inputClass}
-                    disabled={salvando}
-                    onChange={(e) => setCodigo(e.target.value)}
-                    placeholder="Solo si tu matrícula está en trámite"
-                    type="text"
-                    value={codigo}
-                  />
-                  <p className="text-xs text-gray-400 mt-1">Si aún no tenés matrícula, ingresá el código provisto por tu institución.</p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 block mb-1">
+                      Especialidad <span className="text-blue-600">*</span>
+                    </label>
+                    <input
+                      className={inputClass}
+                      disabled={salvando}
+                      onChange={(e) => setEspecialidad(e.target.value)}
+                      placeholder="Clínica, Pediatría, Emergentología…"
+                      type="text"
+                      value={especialidad}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 block mb-1">
+                      Código de invitación de médico
+                    </label>
+                    <input
+                      className={inputClass}
+                      disabled={salvando}
+                      onChange={(e) => setCodigo(e.target.value)}
+                      placeholder="Solo si la matrícula está en trámite"
+                      type="text"
+                      value={codigo}
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-700 block mb-1">
-                    Especialidad <span className="text-blue-600">*</span>
-                  </label>
-                  <input
-                    className={inputClass}
-                    disabled={salvando}
-                    onChange={(e) => setEspecialidad(e.target.value)}
-                    placeholder="Clínica, Pediatría, Emergentología…"
-                    type="text"
-                    value={especialidad}
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-700 block mb-1">
-                    Teléfono de contacto <span className="text-blue-600">*</span>
-                  </label>
-                  <input
-                    className={inputClass}
-                    disabled={salvando}
-                    onChange={(e) => setTelefono(e.target.value)}
-                    placeholder="+54 11 XXXX-XXXX"
-                    type="tel"
-                    value={telefono}
-                  />
-                </div>
+                <p className="text-xs text-gray-400">Si aún no tenés matrícula, ingresá el código provisto por tu institución.</p>
               </div>
 
               {error && (

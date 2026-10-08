@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type {
   CondicionMedica,
@@ -29,6 +29,7 @@ import type {
 
 import { LoginModal } from "@/components/auth/login-modal";
 import { StudyManager } from "@/components/estudios/study-manager";
+import { ResponsiveSelect } from "@/components/shared/responsive-select";
 import { StepIndicator } from "@/components/shared/step-indicator";
 import { Toggle } from "@/components/shared/toggle";
 import { apiFetch, ApiError } from "@/lib/api/client";
@@ -104,6 +105,19 @@ export default function CreateProfilePage() {
   const [obraReports, setObraReports] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [reintentarKey, setReintentarKey] = useState(0);
+
+  const isFirstRender = useRef(true);
+  const formTopRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    // Al avanzar o retroceder de paso en mobile y web, scrollear suavemente al inicio
+    window.scrollTo({ behavior: "smooth", top: 0 });
+    formTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [step]);
 
   const wizardListo = !loading || !session;
   const cargandoPerfil = loading && Boolean(session);
@@ -375,332 +389,358 @@ export default function CreateProfilePage() {
         </div>
       </header>
 
-      <div className="max-w-3xl mx-auto px-4 py-4">
+      <div className="w-full max-w-3xl mx-auto px-4 sm:px-6 py-4 sm:py-8" ref={formTopRef}>
         {wizardListo && (
-          <StepIndicator current={step} />
-        )}
-
-        {step === 1 && (
-          <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center">
-                <User className="text-blue-600" size={18} />
-              </div>
-              <div>
-                <h2 className="font-bold text-gray-900 text-lg">Datos personales</h2>
-                <p className="text-sm text-gray-500">Tu información básica para identificación en emergencia</p>
-                <p className="text-xs text-blue-600 font-medium mt-1">* Campos obligatorios: no podés continuar sin completarlos.</p>
-              </div>
-            </div>
-            <div className="space-y-5">
-              <div>
-                <label className="text-sm font-semibold text-gray-700 block mb-1">Alias público <span className="text-blue-600">*</span></label>
-                <p className="text-xs text-gray-400 mb-1.5">Nombre que verá quien te asista. Puede ser solo tu nombre de pila por privacidad.</p>
-                <input className={INPUT_CLASS} onChange={(e) => setAlias(e.target.value)} placeholder="Ej: Carlos M. o simplemente Carlos" type="text" value={alias} />
-              </div>
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-sm font-semibold text-gray-700">Nombre completo</label>
-                  <span className="text-xs text-blue-600">Cifrado · solo médicos autorizados</span>
-                </div>
-                <input className={INPUT_CLASS} onChange={(e) => setFullName(e.target.value)} placeholder="Tu nombre legal completo" type="text" value={fullName} />
-              </div>
-              <div>
-                <label className="text-sm font-semibold text-gray-700 block mb-1">DNI <span className="text-blue-600">*</span></label>
-                <p className="text-xs text-gray-400 mb-1.5">7 u 8 dígitos, sin puntos ni letras. Una sola cuenta por DNI.</p>
-                <input className={INPUT_CLASS} inputMode="numeric" maxLength={8} onChange={(e) => setDni(e.target.value.replace(/\D/g, "").slice(0, 8))} placeholder="Ej: 30123456" type="text" value={dni} />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-semibold text-gray-700 block mb-1">Fecha de nacimiento <span className="text-blue-600">*</span></label>
-                  <input className={INPUT_CLASS} onChange={(e) => setBirthDate(e.target.value)} type="date" value={birthDate} />
-                </div>
-                <div>
-                  <label className="text-sm font-semibold text-gray-700 block mb-1">Género <span className="text-blue-600">*</span></label>
-                  <select className={INPUT_CLASS} onChange={(e) => setGender(e.target.value)} value={gender}>
-                    <option value="">Seleccionar</option>
-                    <option>Masculino</option>
-                    <option>Femenino</option>
-                    <option>No binario</option>
-                    <option>Prefiero no decir</option>
-                  </select>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <label className="text-sm font-semibold text-gray-700 block mb-1">Grupo sanguíneo <span className="text-blue-600">*</span></label>
-                  <select className={INPUT_CLASS} onChange={(e) => setBloodGroup(e.target.value)} value={bloodGroup}>
-                    <option value="">— Seleccionar —</option>
-                    {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map((g) => (
-                      <option key={g}>{g}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-sm font-semibold text-gray-700 block mb-1">Altura (cm)</label>
-                  <input className={INPUT_CLASS} onChange={(e) => setHeight(e.target.value)} placeholder="170" type="number" value={height} />
-                </div>
-                <div>
-                  <label className="text-sm font-semibold text-gray-700 block mb-1">Peso (kg)</label>
-                  <input className={INPUT_CLASS} onChange={(e) => setWeight(e.target.value)} placeholder="70" type="number" value={weight} />
-                </div>
-              </div>
-            </div>
+          <div className="mb-4">
+            <StepIndicator current={step} />
           </div>
         )}
 
-        {step === 2 && (
-          <div className="space-y-5">
-            <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-              <div className="flex items-center gap-3 mb-5">
-                <div className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center">
-                  <AlertTriangle className="text-amber-600" size={18} />
+        <div className="bg-white rounded-2xl border border-gray-100 p-5 sm:p-7 md:p-8 shadow-sm transition-all">
+          {step === 1 && (
+            <div>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <User className="text-blue-600" size={18} />
                 </div>
                 <div>
-                  <h2 className="font-bold text-gray-900">Condiciones y alergias críticas</h2>
-                  <p className="text-sm text-amber-600 font-medium">Aparecerán destacadas en tu perfil de emergencia</p>
+                  <h2 className="font-bold text-gray-900 text-lg">Datos personales</h2>
+                  <p className="text-sm text-gray-500">Tu información básica para identificación en emergencia</p>
+                  <p className="text-xs text-blue-600 font-medium mt-1">* Campos obligatorios: no podés continuar sin completarlos.</p>
                 </div>
               </div>
-              <div className="border border-gray-100 rounded-xl p-4 mb-3">
-                <p className="text-sm font-semibold text-gray-600 mb-3">Agregar condición</p>
-                <div className="flex flex-col sm:flex-row gap-2 mb-2">
-                  <select className={INPUT_CLASS} onChange={(e) => setCondTipo(e.target.value)} value={condTipo}>
-                    <option>Enfermedad crónica</option>
-                    <option>Alergia</option>
-                    <option>Condición cardíaca</option>
-                    <option>Trastorno neurológico</option>
-                    <option>Otra</option>
-                  </select>
-                  <select className={INPUT_CLASS} onChange={(e) => setCondSev(e.target.value as Severidad)} value={condSev}>
-                    <option>Crítico</option>
-                    <option>Moderado</option>
-                    <option>Leve</option>
-                  </select>
+              <div className="space-y-5">
+                <div>
+                  <label className="text-sm font-semibold text-gray-700 block mb-1">Alias público <span className="text-blue-600">*</span></label>
+                  <p className="text-xs text-gray-400 mb-1.5">Nombre que verá quien te asista. Puede ser solo tu nombre de pila por privacidad.</p>
+                  <input className={INPUT_CLASS} onChange={(e) => setAlias(e.target.value)} placeholder="Ej: Carlos M. o simplemente Carlos" type="text" value={alias} />
                 </div>
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <input
-                    className={INPUT_CLASS}
-                    onChange={(e) => setCondDesc(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && addCondition()}
-                    placeholder="Ej: PENICILINA — RIESGO DE ANAFILAXIA"
-                    type="text"
-                    value={condDesc}
-                  />
-                  <button className="w-full sm:w-9 h-9 bg-amber-500 hover:bg-amber-600 text-white rounded-lg flex items-center justify-center gap-1.5 transition-colors flex-shrink-0" onClick={addCondition}>
-                    <Plus size={16} />
-                    <span className="sm:hidden text-sm font-semibold">Agregar</span>
-                  </button>
-                </div>
-              </div>
-              {conditions.map((c) => (
-                <div className={cn("flex items-center justify-between border rounded-lg px-3 py-2 mb-2 text-sm", SEV_COLOR[c.severidad])} key={c.id}>
-                  <div>
-                    <span className="text-xs font-bold uppercase tracking-wider opacity-60">{c.tipo}</span>
-                    <p className="font-semibold">{c.descripcion}</p>
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-sm font-semibold text-gray-700">Nombre completo</label>
+                    <span className="text-xs text-blue-600">Cifrado · solo médicos autorizados</span>
                   </div>
-                  <button className="opacity-40 hover:opacity-70" onClick={() => removeCondition(c.id)}>
-                    <X size={14} />
-                  </button>
-                </div>
-              ))}
-            </div>
-
-            <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center">
-                  <Activity className="text-blue-600" size={18} />
+                  <input className={INPUT_CLASS} onChange={(e) => setFullName(e.target.value)} placeholder="Tu nombre legal completo" type="text" value={fullName} />
                 </div>
                 <div>
-                  <h2 className="font-bold text-gray-900">Medicación actual</h2>
-                  <p className="text-sm text-gray-500">Se almacena cifrada (Ley 25.326)</p>
+                  <label className="text-sm font-semibold text-gray-700 block mb-1">DNI <span className="text-blue-600">*</span></label>
+                  <p className="text-xs text-gray-400 mb-1.5">7 u 8 dígitos, sin puntos ni letras. Una sola cuenta por DNI.</p>
+                  <input className={INPUT_CLASS} inputMode="numeric" maxLength={8} onChange={(e) => setDni(e.target.value.replace(/\D/g, "").slice(0, 8))} placeholder="Ej: 30123456" type="text" value={dni} />
                 </div>
-              </div>
-              <div className="border border-dashed border-gray-200 rounded-xl p-4 mb-3">
-                <p className="text-sm font-semibold text-gray-600 mb-3">Agregar medicamento</p>
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <input className={INPUT_CLASS} onChange={(e) => setMedName(e.target.value)} placeholder="Nombre del medicamento" type="text" value={medName} />
-                  <input className={cn(INPUT_CLASS, "w-full sm:w-28")} onChange={(e) => setMedDose(e.target.value)} placeholder="Dosis (ej: 50mg)" type="text" value={medDose} />
-                  <input className={cn(INPUT_CLASS, "w-full sm:w-28")} onChange={(e) => setMedFreq(e.target.value)} placeholder="Frecuencia" type="text" value={medFreq} />
-                  <button className="w-full sm:w-9 h-9 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center justify-center gap-1.5 transition-colors flex-shrink-0" onClick={addMedication}>
-                    <Plus size={16} />
-                    <span className="sm:hidden text-sm font-semibold">Agregar</span>
-                  </button>
-                </div>
-              </div>
-              {medications.map((m) => (
-                <div className="flex items-center justify-between border border-gray-100 rounded-lg px-3 py-2 mb-2 text-sm" key={m.id}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <span className="font-semibold text-gray-900">{m.nombre}</span>
-                    {m.dosis && <span className="text-gray-500 ml-2">· {m.dosis}</span>}
-                    {m.frecuencia && <span className="text-gray-400 ml-2">· {m.frecuencia}</span>}
+                    <label className="text-sm font-semibold text-gray-700 block mb-1">Fecha de nacimiento <span className="text-blue-600">*</span></label>
+                    <input className={INPUT_CLASS} onChange={(e) => setBirthDate(e.target.value)} type="date" value={birthDate} />
                   </div>
-                  <button className="text-gray-300 hover:text-gray-500" onClick={() => removeMedication(m.id)}>
-                    <X size={14} />
-                  </button>
+                  <div>
+                    <label className="text-sm font-semibold text-gray-700 block mb-1">Género <span className="text-blue-600">*</span></label>
+                    <ResponsiveSelect
+                      onChange={setGender}
+                      options={[
+                        { label: "Seleccionar", value: "" },
+                        "Masculino",
+                        "Femenino",
+                        "No binario",
+                        "Prefiero no decir",
+                      ]}
+                      placeholder="Seleccionar"
+                      value={gender}
+                    />
+                  </div>
                 </div>
-              ))}
-            </div>
-
-            <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 bg-violet-50 rounded-xl flex items-center justify-center">
-                  <FileText className="text-violet-600" size={18} />
-                </div>
-                <div>
-                  <h2 className="font-bold text-gray-900">Notas para el personal médico</h2>
-                  <p className="text-sm text-blue-500">Solo visible para médicos y paramédicos certificados</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="text-sm font-semibold text-gray-700 block mb-1">Grupo sanguíneo <span className="text-blue-600">*</span></label>
+                    <ResponsiveSelect
+                      onChange={setBloodGroup}
+                      options={[
+                        { label: "— Seleccionar —", value: "" },
+                        "A+",
+                        "A-",
+                        "B+",
+                        "B-",
+                        "AB+",
+                        "AB-",
+                        "O+",
+                        "O-",
+                      ]}
+                      placeholder="— Seleccionar —"
+                      value={bloodGroup}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-semibold text-gray-700 block mb-1">Altura (cm)</label>
+                    <input className={INPUT_CLASS} onChange={(e) => setHeight(e.target.value)} placeholder="170" type="number" value={height} />
+                  </div>
+                  <div>
+                    <label className="text-sm font-semibold text-gray-700 block mb-1">Peso (kg)</label>
+                    <input className={INPUT_CLASS} onChange={(e) => setWeight(e.target.value)} placeholder="70" type="number" value={weight} />
+                  </div>
                 </div>
               </div>
-              <textarea
-                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none bg-white"
-                onChange={(e) => setMedNotes(e.target.value)}
-                placeholder="Ej: En caso de inconsciencia NO administrar insulina. Verificar glucemia antes de cualquier intervención..."
-                rows={4}
-                value={medNotes}
-              />
             </div>
-          </div>
-        )}
+          )}
 
-        {step === 3 && (
-          <div className="space-y-5">
-            <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-              <div className="flex items-center gap-3 mb-5">
-                <div className="w-10 h-10 bg-green-50 rounded-xl flex items-center justify-center">
-                  <Phone className="text-green-600" size={18} />
+          {step === 2 && (
+            <div className="space-y-6">
+              <div className="border border-gray-100 rounded-xl p-4 sm:p-5 bg-gray-50/50">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <AlertTriangle className="text-amber-600" size={18} />
+                  </div>
+                  <div>
+                    <h2 className="font-bold text-gray-900">Condiciones y alergias críticas</h2>
+                    <p className="text-sm text-amber-600 font-medium">Aparecerán destacadas en tu perfil de emergencia</p>
+                  </div>
                 </div>
-                <div>
-                  <h2 className="font-bold text-gray-900">Contactos de emergencia</h2>
-                  <p className="text-sm text-gray-500">Serán alertados con tu ubicación si se activa una alarma</p>
+                <div className="border border-gray-200/80 rounded-xl p-4 mb-3 bg-white">
+                  <p className="text-sm font-semibold text-gray-600 mb-3">Agregar condición</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
+                    <ResponsiveSelect
+                      onChange={setCondTipo}
+                      options={[
+                        "Enfermedad crónica",
+                        "Alergia",
+                        "Condición cardíaca",
+                        "Trastorno neurológico",
+                        "Otra",
+                      ]}
+                      value={condTipo}
+                    />
+                    <ResponsiveSelect
+                      onChange={(v) => setCondSev(v as Severidad)}
+                      options={["Crítico", "Moderado", "Leve"]}
+                      value={condSev}
+                    />
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <input
+                      className={INPUT_CLASS}
+                      onChange={(e) => setCondDesc(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && addCondition()}
+                      placeholder="Ej: PENICILINA — RIESGO DE ANAFILAXIA"
+                      type="text"
+                      value={condDesc}
+                    />
+                    <button className="w-full sm:w-auto px-4 h-10 bg-amber-500 hover:bg-amber-600 text-white rounded-lg flex items-center justify-center gap-1.5 transition-colors flex-shrink-0 font-medium text-sm" onClick={addCondition}>
+                      <Plus size={16} />
+                      <span>Agregar</span>
+                    </button>
+                  </div>
                 </div>
-              </div>
-              {contactos.map((contact, idx) => (
-                <div className={cn("rounded-xl p-4 mb-3", idx === 0 ? "bg-blue-50 border border-blue-100" : "bg-gray-50 border border-gray-100")} key={contact.id}>
-                  <p className="text-xs font-bold text-blue-600 mb-3">{idx === 0 ? "Contacto principal (ICE)" : `Contacto adicional ${idx + 1}`}</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                {conditions.map((c) => (
+                  <div className={cn("flex items-center justify-between border rounded-lg px-3 py-2 mb-2 text-sm", SEV_COLOR[c.severidad])} key={c.id}>
                     <div>
-                      <label className="text-xs font-semibold text-gray-600 block mb-1">Nombre completo</label>
-                      <input className={INPUT_CLASS} onChange={(e) => updateContact(contact.id, "nombre", e.target.value)} placeholder="María González" type="text" value={contact.nombre} />
+                      <span className="text-xs font-bold uppercase tracking-wider opacity-60">{c.tipo}</span>
+                      <p className="font-semibold">{c.descripcion}</p>
                     </div>
-                    <div>
-                      <label className="text-xs font-semibold text-gray-600 block mb-1">Relación</label>
-                      <input className={INPUT_CLASS} onChange={(e) => updateContact(contact.id, "relacion", e.target.value)} placeholder="Esposa / Hijo / Médico..." type="text" value={contact.relacion} />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold text-gray-600 block mb-1">Teléfono de contacto</label>
-                    <input className={INPUT_CLASS} onChange={(e) => updateContact(contact.id, "telefono", e.target.value)} placeholder="+54 11 XXXX-XXXX" type="tel" value={contact.telefono} />
-                  </div>
-                </div>
-              ))}
-              <button className="w-full border border-dashed border-gray-200 rounded-xl py-2.5 text-sm text-gray-500 hover:bg-gray-50 transition-colors flex items-center justify-center gap-1.5" onClick={addContact}>
-                <Plus size={14} /> Agregar otro contacto
-              </button>
-            </div>
-
-            <StudyManager />
-          </div>
-        )}
-
-        {step === 4 && (
-          <div className="space-y-5">
-            <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-              <div className="flex items-center gap-3 mb-5">
-                <div className="w-10 h-10 bg-violet-50 rounded-xl flex items-center justify-center">
-                  <Lock className="text-violet-600" size={18} />
-                </div>
-                <div>
-                  <h2 className="font-bold text-gray-900">Permisos y privacidad</h2>
-                  <p className="text-sm text-blue-500">Controlá qué información compartís y con quién</p>
-                </div>
-              </div>
-              <div className="space-y-3">
-                {[
-                  { checked: shareLocation, key: "shareLocation", locked: true, onChange: setShareLocation, title: "Compartir ubicación en emergencias", desc: "Al presionar el botón de alerta, se enviará tu ubicación GPS al SAME y tus contactos ICE." },
-                  { checked: publicProfile, key: "publicProfile", locked: true, onChange: setPublicProfile, title: "Perfil público de emergencia", desc: "Cualquier persona con tu QR puede ver tu alias, condiciones críticas y contactos ICE." },
-                  { checked: medAccess, key: "medAccess", locked: false, onChange: setMedAccess, title: "Acceso ampliado para médicos certificados", desc: "Los médicos y paramédicos con matrícula verificada pueden acceder a tu historial completo." },
-                  { checked: obraReports, key: "obraReports", locked: false, onChange: setObraReports, title: "Reportes a obra social (anonimizado)", desc: "Permite que tu obra social reciba datos de siniestralidad anónimos para mejorar la cobertura." },
-                ].map(({ checked, key, locked, onChange, title, desc }) => (
-                  <div className="flex items-start justify-between gap-4 py-3 border-b border-gray-50 last:border-0" key={key}>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className="text-sm font-semibold text-gray-900">{title}</span>
-                        {locked && (
-                          <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">Requerido</span>
-                        )}
-                      </div>
-                      <p className="text-xs text-gray-500 leading-relaxed">{desc}</p>
-                    </div>
-                    <Toggle checked={checked} disabled={locked} onChange={onChange} />
+                    <button className="opacity-40 hover:opacity-70 p-1" onClick={() => removeCondition(c.id)}>
+                      <X size={14} />
+                    </button>
                   </div>
                 ))}
               </div>
-              <div className="mt-4 bg-amber-50 border border-amber-200 rounded-xl p-4">
-                <p className="text-xs text-amber-800 leading-relaxed">
-                  <strong>Autorización legal:</strong> Al registrarte en AyudAPI autorizás expresamente a que cualquier persona que encuentre tu código QR en tu persona revise tus pertenencias en caso de emergencia, conforme el Art. 34 del Código Penal (Estado de Necesidad) y el Art. 108 (Obligación de Socorro). Ley 25.326.
-                </p>
+
+              <div className="border border-gray-100 rounded-xl p-4 sm:p-5 bg-gray-50/50">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <Activity className="text-blue-600" size={18} />
+                  </div>
+                  <div>
+                    <h2 className="font-bold text-gray-900">Medicación actual</h2>
+                    <p className="text-sm text-gray-500">Se almacena cifrada (Ley 25.326)</p>
+                  </div>
+                </div>
+                <div className="border border-dashed border-gray-300 rounded-xl p-4 mb-3 bg-white">
+                  <p className="text-sm font-semibold text-gray-600 mb-3">Agregar medicamento</p>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <input className={INPUT_CLASS} onChange={(e) => setMedName(e.target.value)} placeholder="Nombre del medicamento" type="text" value={medName} />
+                    <input className={cn(INPUT_CLASS, "w-full sm:w-32")} onChange={(e) => setMedDose(e.target.value)} placeholder="Dosis (50mg)" type="text" value={medDose} />
+                    <input className={cn(INPUT_CLASS, "w-full sm:w-32")} onChange={(e) => setMedFreq(e.target.value)} placeholder="Frecuencia" type="text" value={medFreq} />
+                    <button className="w-full sm:w-auto px-4 h-10 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center justify-center gap-1.5 transition-colors flex-shrink-0 font-medium text-sm" onClick={addMedication}>
+                      <Plus size={16} />
+                      <span>Agregar</span>
+                    </button>
+                  </div>
+                </div>
+                {medications.map((m) => (
+                  <div className="flex items-center justify-between border border-gray-200 bg-white rounded-lg px-3 py-2 mb-2 text-sm" key={m.id}>
+                    <div>
+                      <span className="font-semibold text-gray-900">{m.nombre}</span>
+                      {m.dosis && <span className="text-gray-500 ml-2">· {m.dosis}</span>}
+                      {m.frecuencia && <span className="text-gray-400 ml-2">· {m.frecuencia}</span>}
+                    </div>
+                    <button className="text-gray-400 hover:text-gray-600 p-1" onClick={() => removeMedication(m.id)}>
+                      <X size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <div className="border border-gray-100 rounded-xl p-4 sm:p-5 bg-gray-50/50">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 bg-violet-50 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <FileText className="text-violet-600" size={18} />
+                  </div>
+                  <div>
+                    <h2 className="font-bold text-gray-900">Notas para el personal médico</h2>
+                    <p className="text-sm text-blue-500">Solo visible para médicos y paramédicos certificados</p>
+                  </div>
+                </div>
+                <textarea
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none bg-white"
+                  onChange={(e) => setMedNotes(e.target.value)}
+                  placeholder="Ej: En caso de inconsciencia NO administrar insulina. Verificar glucemia antes de cualquier intervención..."
+                  rows={4}
+                  value={medNotes}
+                />
               </div>
             </div>
-            <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm text-center">
-              <h3 className="font-bold text-gray-900 mb-1">Vista previa de tu QR</h3>
-              <p className="text-sm text-blue-500 mb-5">Al confirmar, se generará tu QR único y seguro</p>
-              <div className="inline-block p-3 border border-gray-100 rounded-xl opacity-40 grayscale">
-                <QRCodeSVG size={120} value="https://ayudapi.ar/e/preview" />
-              </div>
-              <p className="text-xs text-gray-400 mt-3">El QR final se genera al guardar tu perfil</p>
-            </div>
-          </div>
-        )}
-
-        {error && (
-          <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-4">
-            {error}
-          </p>
-        )}
-
-        {loadError && (
-          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 mt-4">
-            <p className="text-sm text-amber-700 font-medium">{loadError}</p>
-            <p className="text-xs text-amber-700/70 mt-0.5">
-              No se modificó ningún dato. Reintentá la carga antes de continuar.
-            </p>
-            <button
-              className="mt-2 inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
-              onClick={() => {
-              setLoading(true);
-              setLoadError(null);
-              setReintentarKey((k) => k + 1);
-            }}
-            >
-              <RefreshCw size={14} /> Reintentar carga
-            </button>
-          </div>
-        )}
-
-        <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 mt-8 pb-8">
-          <button className="flex items-center justify-center sm:justify-start gap-1 text-sm text-gray-500 hover:text-gray-700 transition-colors py-2" onClick={headerBack}>
-            <ChevronLeft size={16} />
-            {step === 1 ? "Volver al inicio" : "Anterior"}
-          </button>
-          {step < 4 ? (
-            <button
-              className="flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold text-sm px-6 py-2.5 rounded-xl transition-colors w-full sm:w-auto"
-              disabled={cargandoPerfil || Boolean(loadError)}
-              onClick={irSiguiente}
-            >
-              {loading && <Loader2 className="animate-spin" size={15} />}
-              Siguiente <ChevronRight size={16} />
-            </button>
-          ) : (
-            <button
-              className="flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold text-sm px-6 py-2.5 rounded-xl transition-colors w-full sm:w-auto"
-              disabled={cargandoPerfil || saving || Boolean(loadError)}
-              onClick={handleSave}
-            >
-              {saving ? <Loader2 className="animate-spin" size={16} /> : <Check size={16} />}
-              Guardar y generar QR
-            </button>
           )}
+
+          {step === 3 && (
+            <div className="space-y-6">
+              <div className="border border-gray-100 rounded-xl p-4 sm:p-5 bg-gray-50/50">
+                <div className="flex items-center gap-3 mb-5">
+                  <div className="w-10 h-10 bg-green-50 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <Phone className="text-green-600" size={18} />
+                  </div>
+                  <div>
+                    <h2 className="font-bold text-gray-900">Contactos de emergencia</h2>
+                    <p className="text-sm text-gray-500">Serán alertados con tu ubicación si se activa una alarma</p>
+                  </div>
+                </div>
+                {contactos.map((contact, idx) => (
+                  <div className={cn("rounded-xl p-4 mb-3 bg-white", idx === 0 ? "border border-blue-200 shadow-xs" : "border border-gray-200")} key={contact.id}>
+                    <p className="text-xs font-bold text-blue-600 mb-3">{idx === 0 ? "Contacto principal (ICE)" : `Contacto adicional ${idx + 1}`}</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                      <div>
+                        <label className="text-xs font-semibold text-gray-600 block mb-1">Nombre completo</label>
+                        <input className={INPUT_CLASS} onChange={(e) => updateContact(contact.id, "nombre", e.target.value)} placeholder="María González" type="text" value={contact.nombre} />
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-gray-600 block mb-1">Relación</label>
+                        <input className={INPUT_CLASS} onChange={(e) => updateContact(contact.id, "relacion", e.target.value)} placeholder="Esposa / Hijo / Médico..." type="text" value={contact.relacion} />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-gray-600 block mb-1">Teléfono de contacto</label>
+                      <input className={INPUT_CLASS} onChange={(e) => updateContact(contact.id, "telefono", e.target.value)} placeholder="+54 11 XXXX-XXXX" type="tel" value={contact.telefono} />
+                    </div>
+                  </div>
+                ))}
+                <button className="w-full border border-dashed border-gray-300 rounded-xl py-3 text-sm font-medium text-gray-600 hover:bg-white transition-colors flex items-center justify-center gap-1.5" onClick={addContact}>
+                  <Plus size={14} /> Agregar otro contacto
+                </button>
+              </div>
+
+              <StudyManager className="bg-gray-50/50 border border-gray-100" />
+            </div>
+          )}
+
+          {step === 4 && (
+            <div className="space-y-6">
+              <div className="border border-gray-100 rounded-xl p-4 sm:p-5 bg-gray-50/50">
+                <div className="flex items-center gap-3 mb-5">
+                  <div className="w-10 h-10 bg-violet-50 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <Lock className="text-violet-600" size={18} />
+                  </div>
+                  <div>
+                    <h2 className="font-bold text-gray-900">Permisos y privacidad</h2>
+                    <p className="text-sm text-blue-500">Controlá qué información compartís y con quién</p>
+                  </div>
+                </div>
+                <div className="space-y-3 bg-white rounded-xl p-4 border border-gray-200/80">
+                  {[
+                    { checked: shareLocation, key: "shareLocation", locked: true, onChange: setShareLocation, title: "Compartir ubicación en emergencias", desc: "Al presionar el botón de alerta, se enviará tu ubicación GPS al SAME y tus contactos ICE." },
+                    { checked: publicProfile, key: "publicProfile", locked: true, onChange: setPublicProfile, title: "Perfil público de emergencia", desc: "Cualquier persona con tu QR puede ver tu alias, condiciones críticas y contactos ICE." },
+                    { checked: medAccess, key: "medAccess", locked: false, onChange: setMedAccess, title: "Acceso ampliado para médicos certificados", desc: "Los médicos y paramédicos con matrícula verificada pueden acceder a tu historial completo." },
+                    { checked: obraReports, key: "obraReports", locked: false, onChange: setObraReports, title: "Reportes a obra social (anonimizado)", desc: "Permite que tu obra social reciba datos de siniestralidad anónimos para mejorar la cobertura." },
+                  ].map(({ checked, key, locked, onChange, title, desc }) => (
+                    <div className="flex items-start justify-between gap-4 py-3 border-b border-gray-100 last:border-0" key={key}>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <span className="text-sm font-semibold text-gray-900">{title}</span>
+                          {locked && (
+                            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">Requerido</span>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-500 leading-relaxed">{desc}</p>
+                      </div>
+                      <Toggle checked={checked} disabled={locked} onChange={onChange} />
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-4 bg-amber-50 border border-amber-200 rounded-xl p-4">
+                  <p className="text-xs text-amber-800 leading-relaxed">
+                    <strong>Autorización legal:</strong> Al registrarte en AyudAPI autorizás expresamente a que cualquier persona que encuentre tu código QR en tu persona revise tus pertenencias en caso de emergencia, conforme el Art. 34 del Código Penal (Estado de Necesidad) y el Art. 108 (Obligación de Socorro). Ley 25.326.
+                  </p>
+                </div>
+              </div>
+
+              <div className="border border-gray-100 rounded-xl p-5 bg-gray-50/50 flex flex-col sm:flex-row items-center gap-6 text-center sm:text-left">
+                <div className="p-3 bg-white border border-gray-200 rounded-2xl opacity-60 grayscale flex-shrink-0 shadow-xs">
+                  <QRCodeSVG size={120} value="https://ayudapi.ar/e/preview" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900 mb-1">Vista previa de tu QR</h3>
+                  <p className="text-sm text-gray-600 mb-2">Al confirmar, se generará tu QR único y seguro con cifrado de grado médico.</p>
+                  <p className="text-xs text-gray-400">Podrás descargarlo en alta definición e imprimirlo desde tu perfil en cualquier momento.</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {error && (
+            <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-5">
+              {error}
+            </p>
+          )}
+
+          {loadError && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 mt-5">
+              <p className="text-sm text-amber-700 font-medium">{loadError}</p>
+              <p className="text-xs text-amber-700/70 mt-0.5">
+                No se modificó ningún dato. Reintentá la carga antes de continuar.
+              </p>
+              <button
+                className="mt-2 inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+                onClick={() => {
+                  setLoading(true);
+                  setLoadError(null);
+                  setReintentarKey((k) => k + 1);
+                }}
+              >
+                <RefreshCw size={14} /> Reintentar carga
+              </button>
+            </div>
+          )}
+
+          <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 mt-8 pt-6 border-t border-gray-100">
+            <button className="flex items-center justify-center sm:justify-start gap-1 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors py-2" onClick={headerBack}>
+              <ChevronLeft size={16} />
+              {step === 1 ? "Volver al inicio" : "Anterior"}
+            </button>
+            {step < 4 ? (
+              <button
+                className="flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold text-sm px-6 py-2.5 rounded-xl transition-colors w-full sm:w-auto"
+                disabled={cargandoPerfil || Boolean(loadError)}
+                onClick={irSiguiente}
+              >
+                {loading && <Loader2 className="animate-spin" size={15} />}
+                Siguiente <ChevronRight size={16} />
+              </button>
+            ) : (
+              <button
+                className="flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold text-sm px-6 py-2.5 rounded-xl transition-colors w-full sm:w-auto"
+                disabled={cargandoPerfil || saving || Boolean(loadError)}
+                onClick={handleSave}
+              >
+                {saving ? <Loader2 className="animate-spin" size={16} /> : <Check size={16} />}
+                Guardar y generar QR
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

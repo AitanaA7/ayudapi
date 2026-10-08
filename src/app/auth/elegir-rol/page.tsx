@@ -6,6 +6,7 @@ import { Suspense, useCallback, useEffect, useState } from "react";
 
 import type { RolUsuario } from "@/lib/supabase/database";
 
+import { ResponsiveSelect } from "@/components/shared/responsive-select";
 import { ApiError, apiFetch } from "@/lib/api/client";
 import { RUTA_DESTINO_KEY } from "@/lib/auth/destino";
 import { esDestinoInternoValido, esRutaMedica } from "@/lib/auth/ruteo";
@@ -330,26 +331,26 @@ function ElegirRolContenido() {
   }
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm p-8 max-w-md mx-auto w-full">
+    <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-5 sm:p-7 md:p-8 max-w-lg sm:max-w-xl mx-auto w-full transition-all">
       <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
         <ShieldCheck className="text-emerald-600" size={22} />
       </div>
-      <h1 className="text-xl font-extrabold text-gray-900 text-center mb-1">
+      <h1 className="text-xl sm:text-2xl font-extrabold text-gray-900 text-center mb-1">
         Elegí el rol de tu cuenta
       </h1>
       <p className="text-sm text-gray-500 text-center mb-1">
         Tu email ya quedó validado con Google. Asociá un rol para continuar.
       </p>
       {email && (
-        <p className="text-xs text-gray-400 text-center mb-6">{email}</p>
+        <p className="text-xs text-gray-400 text-center mb-5 truncate">{email}</p>
       )}
 
-      <div className="grid grid-cols-3 gap-2 mb-5">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-5">
         {ROLES.map(({ clave, descripcion, etiqueta }) => (
           <button
-            className={`rounded-xl px-2 py-3 text-xs font-semibold border transition-colors flex flex-col items-center gap-1 ${
+            className={`rounded-xl px-2 py-3 sm:py-3.5 text-xs font-semibold border transition-all flex flex-col items-center justify-center gap-1.5 ${
               rol === clave
-                ? "bg-blue-600 border-blue-600 text-white"
+                ? "bg-blue-600 border-blue-600 text-white shadow-xs"
                 : "border-gray-200 text-gray-600 hover:bg-gray-50"
             }`}
             key={clave}
@@ -360,17 +361,17 @@ function ElegirRolContenido() {
             type="button"
           >
             {iconoRol(clave)}
-            {etiqueta}
-            <span className={`text-[10px] font-normal ${rol === clave ? "text-blue-100" : "text-gray-400"}`}>
+            <span className="font-bold text-xs">{etiqueta}</span>
+            <span className={`text-[10px] text-center leading-tight line-clamp-1 font-normal ${rol === clave ? "text-blue-100" : "text-gray-400"}`}>
               {descripcion}
             </span>
           </button>
         ))}
       </div>
 
-      <div className="space-y-3 mb-4">
+      <div className="min-h-[260px] flex flex-col justify-between mb-4">
         {rol === "paciente" && (
-          <div className="space-y-3">
+          <div className="space-y-3.5">
             <div>
               <label className="text-sm font-medium text-gray-700 block mb-1">
                 DNI <span className="text-blue-600">*</span>
@@ -388,17 +389,17 @@ function ElegirRolContenido() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="text-sm font-medium text-gray-700 block mb-1">Nombre</label>
+                <label className="text-sm font-medium text-gray-700 block mb-1">Nombre completo</label>
                 <input
                   className={inputClass}
                   onChange={(e) => setNombreCompleto(e.target.value)}
-                  placeholder="Nombre completo"
+                  placeholder="Tu nombre legal"
                   type="text"
                   value={nombreCompleto}
                 />
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-700 block mb-1">Alias</label>
+                <label className="text-sm font-medium text-gray-700 block mb-1">Alias público</label>
                 <input
                   className={inputClass}
                   onChange={(e) => setAlias(e.target.value)}
@@ -408,24 +409,41 @@ function ElegirRolContenido() {
                 />
               </div>
             </div>
+            <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-xs text-blue-700">
+              Podrás completar tus alergias, medicación y contactos de emergencia en el siguiente paso.
+            </div>
           </div>
         )}
 
         {rol === "medico" && (
           <div className="space-y-3">
-            <div>
-              <label className="text-sm font-medium text-gray-700 block mb-1">
-                DNI <span className="text-blue-600">*</span>
-              </label>
-              <input
-                className={inputClass}
-                inputMode="numeric"
-                maxLength={8}
-                onChange={(e) => setDni(e.target.value.replace(/\D/g, "").slice(0, 8))}
-                placeholder="Ej: 30123456 (7 u 8 dígitos, sin puntos)"
-                type="text"
-                value={dni}
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm font-medium text-gray-700 block mb-1">
+                  DNI <span className="text-blue-600">*</span>
+                </label>
+                <input
+                  className={inputClass}
+                  inputMode="numeric"
+                  maxLength={8}
+                  onChange={(e) => setDni(e.target.value.replace(/\D/g, "").slice(0, 8))}
+                  placeholder="Ej: 30123456"
+                  type="text"
+                  value={dni}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700 block mb-1">
+                  Especialidad <span className="text-blue-600">*</span>
+                </label>
+                <input
+                  className={inputClass}
+                  onChange={(e) => setEspecialidad(e.target.value)}
+                  placeholder="Clínica, Pediatría…"
+                  type="text"
+                  value={especialidad}
+                />
+              </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
@@ -435,7 +453,7 @@ function ElegirRolContenido() {
                 <input
                   className={inputClass}
                   onChange={(e) => setMatricula(e.target.value)}
-                  placeholder="MP 123456 / MN 789012 (o código si está en trámite)"
+                  placeholder="MP 123456 / MN 789012"
                   type="text"
                   value={matricula}
                 />
@@ -444,61 +462,49 @@ function ElegirRolContenido() {
                 <label className="text-sm font-medium text-gray-700 block mb-1">
                   Jurisdicción <span className="text-blue-600">*</span>
                 </label>
-                <select
-                  className={inputClass}
-                  onChange={(e) => setJurisdiccion(e.target.value)}
+                <ResponsiveSelect
+                  onChange={setJurisdiccion}
+                  options={[
+                    { label: "Seleccionar", value: "" },
+                    ...JURISDICCIONES_SISA,
+                  ]}
+                  placeholder="Seleccionar"
                   value={jurisdiccion}
-                >
-                  <option value="">Seleccionar</option>
-                  {JURISDICCIONES_SISA.map((j) => (
-                    <option key={j} value={j}>{j}</option>
-                  ))}
-                </select>
+                />
               </div>
             </div>
-            <p className="text-xs text-gray-400">Tu credencial se verifica contra el padrón SISA/REFEPS. Sin coincidencia, el alta se bloquea.</p>
-            <div>
-              <label className="text-sm font-medium text-gray-700 block mb-1">
-                Código de invitación de médico
-              </label>
-              <input
-                className={inputClass}
-                onChange={(e) => setCodigoMedico(e.target.value)}
-                placeholder="Solo si tu matrícula está en trámite"
-                type="text"
-                value={codigoMedico}
-              />
-              <p className="text-xs text-gray-400 mt-1">Si aún no tenés matrícula, ingresá el código provisto por tu institución.</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm font-medium text-gray-700 block mb-1">
+                  Teléfono de contacto <span className="text-blue-600">*</span>
+                </label>
+                <input
+                  className={inputClass}
+                  onChange={(e) => setTelefono(e.target.value)}
+                  placeholder="+54 11 XXXX-XXXX"
+                  type="tel"
+                  value={telefono}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700 block mb-1">
+                  Código de invitación
+                </label>
+                <input
+                  className={inputClass}
+                  onChange={(e) => setCodigoMedico(e.target.value)}
+                  placeholder="Solo matrícula en trámite"
+                  type="text"
+                  value={codigoMedico}
+                />
+              </div>
             </div>
-            <div>
-              <label className="text-sm font-medium text-gray-700 block mb-1">
-                Especialidad <span className="text-blue-600">*</span>
-              </label>
-              <input
-                className={inputClass}
-                onChange={(e) => setEspecialidad(e.target.value)}
-                placeholder="Clínica, Pediatría, Emergentología…"
-                type="text"
-                value={especialidad}
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium text-gray-700 block mb-1">
-                Teléfono de contacto <span className="text-blue-600">*</span>
-              </label>
-              <input
-                className={inputClass}
-                onChange={(e) => setTelefono(e.target.value)}
-                placeholder="+54 11 XXXX-XXXX"
-                type="tel"
-                value={telefono}
-              />
-            </div>
+            <p className="text-xs text-gray-400">Verificación con padrón oficial SISA/REFEPS. Ley 25.326.</p>
           </div>
         )}
 
         {rol === "institucion" && (
-          <div className="space-y-3">
+          <div className="space-y-3.5">
             <div>
               <label className="text-sm font-medium text-gray-700 block mb-1">
                 Nombre de la institución <span className="text-blue-600">*</span>
@@ -511,30 +517,34 @@ function ElegirRolContenido() {
                 value={nombreInstitucion}
               />
             </div>
-            <div>
-              <label className="text-sm font-medium text-gray-700 block mb-1">
-                CUIT <span className="text-blue-600">*</span>
-              </label>
-              <input
-                className={inputClass}
-                onChange={(e) => setCuit(e.target.value)}
-                placeholder="30-12345678-9"
-                type="text"
-                value={cuit}
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm font-medium text-gray-700 block mb-1">
+                  CUIT <span className="text-blue-600">*</span>
+                </label>
+                <input
+                  className={inputClass}
+                  onChange={(e) => setCuit(e.target.value)}
+                  placeholder="30-12345678-9"
+                  type="text"
+                  value={cuit}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700 block mb-1">
+                  Código de invitación <span className="text-blue-600">*</span>
+                </label>
+                <input
+                  className={inputClass}
+                  onChange={(e) => setCodigoInvitacion(e.target.value)}
+                  placeholder="Código de administrador"
+                  type="text"
+                  value={codigoInvitacion}
+                />
+              </div>
             </div>
-            <div>
-              <label className="text-sm font-medium text-gray-700 block mb-1">
-                Código de invitación <span className="text-blue-600">*</span>
-              </label>
-              <input
-                className={inputClass}
-                onChange={(e) => setCodigoInvitacion(e.target.value)}
-                placeholder="Código entregado por el administrador"
-                type="text"
-                value={codigoInvitacion}
-              />
-              <p className="text-xs text-gray-400 mt-1">El alta institucional no es pública: requiere invitación.</p>
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800">
+              El alta institucional requiere código provisto por un administrador de AyudAPI.
             </div>
           </div>
         )}

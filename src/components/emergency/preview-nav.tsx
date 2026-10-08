@@ -9,7 +9,7 @@ import Link from "next/link";
 export function PreviewNav() {
   return (
     <nav className="w-full border-b border-white/10 bg-[#0F1929]/95 sticky top-0 z-40">
-      <div className="mx-auto flex w-full max-w-sm items-center justify-between gap-2 px-3 py-2.5">
+      <div className="mx-auto flex w-full max-w-lg md:max-w-2xl items-center justify-between gap-2 px-3 sm:px-6 py-2.5">
         <Link
           className="flex items-center gap-2 rounded-lg bg-[#1e2d3a] px-3 py-2 text-white transition-colors hover:bg-[#24384a]"
           href="/"

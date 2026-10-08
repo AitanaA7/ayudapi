@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 
 import type { EstudioConAcceso, TipoEstudio } from "@/lib/supabase/database";
 
+import { ResponsiveSelect } from "@/components/shared/responsive-select";
 import { apiFetch } from "@/lib/api/client";
 import { useSession } from "@/lib/auth/use-session";
 import { cn } from "@/lib/utils";
@@ -28,7 +29,7 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function StudyManager() {
+export function StudyManager({ className }: { className?: string } = {}) {
   const { session } = useSession();
   const [archivo, setArchivo] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -120,7 +121,7 @@ export function StudyManager() {
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+    <div className={cn("bg-white rounded-2xl border border-gray-100 p-4 sm:p-6 shadow-sm", className)}>
       <div className="flex items-center gap-3 mb-4">
         <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center">
           <FileText className="text-blue-600" size={18} />
@@ -155,15 +156,14 @@ export function StudyManager() {
                 onChange={(e) => setArchivo(e.target.files?.[0] ?? null)}
                 type="file"
               />
-              <select
-                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                onChange={(e) => setTipoEstudio(e.target.value as TipoEstudio)}
+              <ResponsiveSelect
+                onChange={(val) => setTipoEstudio(val as TipoEstudio)}
+                options={TIPOS_ESTUDIO.map(({ clave, etiqueta }) => ({
+                  label: etiqueta,
+                  value: clave,
+                }))}
                 value={tipoEstudio}
-              >
-                {TIPOS_ESTUDIO.map(({ clave, etiqueta }) => (
-                  <option key={clave} value={clave}>{etiqueta}</option>
-                ))}
-              </select>
+              />
             </div>
             <div className="flex items-center justify-between gap-3">
               <p className="text-xs text-gray-400 truncate">
