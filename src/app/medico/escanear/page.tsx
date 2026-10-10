@@ -337,13 +337,8 @@ export default function MedicoEscanearPage() {
           <div className="bg-blue-50 border border-blue-200 rounded-2xl px-4 py-3 mb-6 flex items-start gap-2">
             <Shield className="text-blue-600 flex-shrink-0 mt-0.5" size={14} />
             <p className="text-xs text-blue-800 leading-relaxed">
-              <strong>Matrícula en trámite:</strong> estás operando con acceso
-              completo. Cuando te otorguen tu matrícula profesional definitiva,
-              actualizala desde{" "}
-              <Link className="font-bold underline" href="/medico/completar-perfil">
-                completar perfil
-              </Link>
-              .
+              <strong>Verificación pendiente:</strong> estás operando con acceso
+              completo. Tu DNI se validará contra el padrón SISA/REFEPS.
             </p>
           </div>
         )}
@@ -358,12 +353,12 @@ export default function MedicoEscanearPage() {
               </p>
               <p className="text-xs text-gray-500 truncate">
                 {medico
-                  ? `Matrícula ${medico.perfil.matricula}${
+                  ? `DNI ${medico.perfil.dni ?? "—"}${
                       medico.perfil.especialidad
                         ? ` · ${medico.perfil.especialidad}`
                         : ""
                     }`
-                  : "Verificando matrícula..."}
+                  : "Verificando identidad..."}
               </p>
             </div>
           </div>
@@ -543,7 +538,7 @@ export default function MedicoEscanearPage() {
                 Acceso auditado y registrado
               </p>
               <p className="text-xs text-amber-700/80 leading-relaxed">
-                Cada consulta y búsqueda queda registrada con tu matrícula, fecha
+                Cada consulta y búsqueda queda registrada con tu DNI, fecha
                 y hora. El acceso a datos sensibles está sujeto al consentimiento
                 del paciente y al marco legal vigente. Ley 25.326.
               </p>

@@ -6,7 +6,6 @@ import { Suspense, useCallback, useEffect, useState } from "react";
 
 import type { RolUsuario } from "@/lib/supabase/database";
 
-import { ResponsiveSelect } from "@/components/shared/responsive-select";
 import { ApiError, apiFetch } from "@/lib/api/client";
 import { RUTA_DESTINO_KEY } from "@/lib/auth/destino";
 import { esDestinoInternoValido, esRutaMedica } from "@/lib/auth/ruteo";
@@ -14,11 +13,7 @@ import { useSession } from "@/lib/auth/use-session";
 import {
   esCuitValido,
   esDniEstrictoValido,
-  esJurisdiccionSisaValida,
-  esMatriculaDePrueba,
-  esMatriculaRealValida,
   esTelefonoValido,
-  JURISDICCIONES_SISA,
   perfilMedicoOperativo,
   perfilPacienteCompleto,
 } from "@/lib/validation/profile";
@@ -88,8 +83,6 @@ function ElegirRolContenido() {
   const [especialidad, setEspecialidad] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [intento, setIntento] = useState(0);
-  const [jurisdiccion, setJurisdiccion] = useState("");
-  const [matricula, setMatricula] = useState("");
   const [nombreCompleto, setNombreCompleto] = useState("");
   const [nombreInstitucion, setNombreInstitucion] = useState("");
   const [telefono, setTelefono] = useState("");
@@ -196,8 +189,6 @@ function ElegirRolContenido() {
         codigo_invitacion: codigoMedico.trim() || undefined,
         dni: dni.trim() || undefined,
         especialidad: especialidad.trim() || undefined,
-        jurisdiccion: jurisdiccion.trim() || undefined,
-        matricula: matricula.trim() || undefined,
         telefono_contacto: telefono.trim() || undefined,
       };
     }
@@ -224,19 +215,8 @@ function ElegirRolContenido() {
       }
     }
     if (rol === "medico") {
-      const matriculaLimpia = matricula.trim();
-      // Matrícula ausente o en trámite: se admite código de invitación médica
-      // (el backend lo exige vía `MEDICO_INVITE_CODE`, 403 fail-closed).
-      const sinMatricula = matriculaLimpia.length === 0;
-      if (!sinMatricula && !esMatriculaRealValida(matriculaLimpia) && !esMatriculaDePrueba(matriculaLimpia)) {
-        return "La matrícula profesional es obligatoria: 4 a 8 dígitos (con o sin prefijo MN/MP/ME).";
-      }
-      if (sinMatricula && codigoMedico.trim().length === 0) {
-        return "Ingresá tu matrícula profesional o el código de invitación de médico.";
-      }
-      if (!esJurisdiccionSisaValida(jurisdiccion)) {
-        return "La jurisdicción es obligatoria: seleccioná la emisora oficial (Nacional o provincia).";
-      }
+      // Modelo DNI-only: solo el DNI se contrasta contra el padrón
+      // SISA/REFEPS. El código de invitación es opcional (vía de excepción).
       if (especialidad.trim().length < 3) {
         return "La especialidad es obligatoria (mínimo 3 caracteres).";
       }
@@ -448,34 +428,6 @@ function ElegirRolContenido() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="text-sm font-medium text-gray-700 block mb-1">
-                  Matrícula profesional <span className="text-blue-600">*</span>
-                </label>
-                <input
-                  className={inputClass}
-                  onChange={(e) => setMatricula(e.target.value)}
-                  placeholder="MP 123456 / MN 789012"
-                  type="text"
-                  value={matricula}
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-700 block mb-1">
-                  Jurisdicción <span className="text-blue-600">*</span>
-                </label>
-                <ResponsiveSelect
-                  onChange={setJurisdiccion}
-                  options={[
-                    { label: "Seleccionar", value: "" },
-                    ...JURISDICCIONES_SISA,
-                  ]}
-                  placeholder="Seleccionar"
-                  value={jurisdiccion}
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="text-sm font-medium text-gray-700 block mb-1">
                   Teléfono de contacto <span className="text-blue-600">*</span>
                 </label>
                 <input
@@ -493,7 +445,7 @@ function ElegirRolContenido() {
                 <input
                   className={inputClass}
                   onChange={(e) => setCodigoMedico(e.target.value)}
-                  placeholder="Solo matrícula en trámite"
+                  placeholder="Solo con invitación institucional"
                   type="text"
                   value={codigoMedico}
                 />

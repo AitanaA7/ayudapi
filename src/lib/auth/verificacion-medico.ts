@@ -1,13 +1,16 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
- * Unicidad y persistencia del perfil médico con degradación elegante.
+ * Unicidad y persistencia del perfil médico (modelo DNI-only).
  *
- * Columnas extendidas (`jurisdiccion`, `dni`, `estado_verificacion`,
- * `invite_modo`) pueden no existir aún en la base (ver migración al final de
- * `supabase/schema.sql`). Todas las lecturas/escrituras extendidas detectan
- * "columna inexistente" (`PGRST204` / `42703`) y caen al comportamiento base
- * (solo `matricula`), para no romper producción antes de aplicar la migración.
+ * La identidad del profesional es su DNI (único global, ver
+ * `verificarDniGlobal`): `matricula` y `jurisdiccion` son legado opcional y
+ * ya no se solicitan en el alta. Columnas extendidas (`jurisdiccion`, `dni`,
+ * `estado_verificacion`, `invite_modo`) pueden no existir aún en la base (ver
+ * migración al final de `supabase/schema.sql`). Todas las lecturas/escrituras
+ * extendidas detectan "columna inexistente" (`PGRST204` / `42703`) y caen al
+ * comportamiento base, para no romper producción antes de aplicar la
+ * migración. `matricula` es nullable desde la migración DNI-only.
  */
 
 export interface ValoresMedico {
@@ -16,11 +19,13 @@ export interface ValoresMedico {
   estadoVerificacion?: string | null;
   /**
    * Marcador de excepción por invitación (`'codigo'`) o `null` para
-   * limpiarlo al regularizar con matrícula real. `undefined` = no tocar.
+   * limpiarlo. `undefined` = no tocar.
    */
   inviteModo?: string | null;
+  /** Legado opcional: ya no se solicita en el alta. */
   jurisdiccion?: string | null;
-  matricula: string;
+  /** Legado opcional: ya no se solicita en el alta. */
+  matricula?: string | null;
   telefonoContacto: string;
 }
 
@@ -38,17 +43,6 @@ function esErrorColumnaInexistente(error: { code?: string; message: string } | n
     mensaje.includes("columna") ||
     mensaje.includes("does not exist")
   );
-}
-
-export function mensajeConflictoMatricula(matricula: string, jurisdiccion?: string | null): string {
-  const matriculaTxt = matricula.trim().toUpperCase();
-  if (jurisdiccion && jurisdiccion.trim().length > 0) {
-    return (
-      `Esa matrícula (${matriculaTxt}, jurisdicción ${jurisdiccion.trim().toUpperCase()}) ` +
-      "ya está registrada en otra cuenta. Verificá el número y la jurisdicción ingresados."
-    );
-  }
-  return "Esa matrícula ya está registrada en otra cuenta. Verificá el número ingresado.";
 }
 
 export function mensajeConflictoDni(): string {
@@ -109,9 +103,8 @@ interface Ocupacion {
 }
 
 /**
- * Chequea si otra cuenta usa ya los filtros dados. Si la consulta toca una
- * columna extendida aún no migrada, se degrada a "libre" (la unicidad de
- * `matricula` ya cubre esos casos).
+ * Chequea si otra cuenta usa ya los filtros dados (hoy: DNI). Si la consulta
+ * toca una columna extendida aún no migrada, se degrada a "libre".
  */
 async function existeEnOtraCuenta(
   admin: SupabaseClient,
@@ -141,56 +134,6 @@ async function existeEnOtraCuenta(
   return { ocupada: Boolean(data) };
 }
 
-const SIN_CONFLICTO: Ocupacion = { ocupada: false };
-
-/**
- * Verifica unicidad de matrícula (+jurisdicción compuesta cuando hay valor) y
- * DNI contra otras cuentas. Los chequeos independientes corren en paralelo en
- * un único `Promise.all` para no sumar latencia por consulta. Devuelve el
- * mensaje 409 o `null` si está libre.
- */
-export async function verificarUnicidadMedico(
-  admin: SupabaseClient,
-  args: { dni?: string | null; jurisdiccion?: string | null; matricula: string; usuarioId: string },
-): Promise<{ conflicto: string | null; error?: { code?: string; message: string } }> {
-  const matricula = args.matricula.trim().toUpperCase();
-
-  const [base, compuesta, porDni] = await Promise.all([
-    existeEnOtraCuenta(admin, { matricula, usuarioId: args.usuarioId }),
-    args.jurisdiccion
-      ? existeEnOtraCuenta(admin, {
-          jurisdiccion: args.jurisdiccion,
-          matricula,
-          usuarioId: args.usuarioId,
-        })
-      : Promise.resolve(SIN_CONFLICTO),
-    args.dni
-      ? existeEnOtraCuenta(admin, { dni: args.dni, usuarioId: args.usuarioId })
-      : Promise.resolve(SIN_CONFLICTO),
-  ]);
-
-  if (base.error) {
-    return { conflicto: null, error: base.error };
-  }
-  if (base.ocupada) {
-    return { conflicto: mensajeConflictoMatricula(matricula, args.jurisdiccion) };
-  }
-  if (compuesta.error) {
-    return { conflicto: null, error: compuesta.error };
-  }
-  if (compuesta.ocupada) {
-    return { conflicto: mensajeConflictoMatricula(matricula, args.jurisdiccion) };
-  }
-  if (porDni.error) {
-    return { conflicto: null, error: porDni.error };
-  }
-  if (porDni.ocupada) {
-    return { conflicto: mensajeConflictoDni() };
-  }
-
-  return { conflicto: null };
-}
-
 /**
  * Inserta o actualiza la fila del médico. Intenta persistir las columnas
  * extendidas y reintenta solo con las base si la migración aún no se aplicó.
@@ -203,7 +146,10 @@ export async function guardarPerfilMedico(
 ): Promise<{ error?: { code?: string; message: string } }> {
   const base = {
     especialidad: valores.especialidad,
-    matricula: valores.matricula.trim().toUpperCase(),
+    matricula:
+      typeof valores.matricula === "string" && valores.matricula.trim().length > 0
+        ? valores.matricula.trim().toUpperCase()
+        : null,
     telefono_contacto: valores.telefonoContacto,
   };
   const extendida: Record<string, string | null> = {};

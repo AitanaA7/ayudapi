@@ -16,18 +16,11 @@ import { getBearerToken, getRolesForUser, getSessionUser, jsonError, jsonOk } fr
 import { verificarProfesionalSisa } from "@/lib/auth/sisa";
 import {
   guardarPerfilMedico,
-  mensajeConflictoMatricula,
   verificarDniGlobal,
-  verificarUnicidadMedico,
 } from "@/lib/auth/verificacion-medico";
 import { createAdminServerClient } from "@/lib/supabase/server";
 import {
-  esMatriculaDePrueba,
-  esMatriculaProvisoria,
-  matriculaProvisoriaPara,
   normalizarDni,
-  normalizarJurisdiccionSisa,
-  normalizarMatricula,
 } from "@/lib/validation/profile";
 import {
   detalle400DesdeZod,
@@ -53,10 +46,8 @@ interface VincularRolRequest {
 interface DatosMedico {
   dni: string | null;
   especialidad: string;
-  /** Presente solo en la vía de invitación (matrícula en trámite). */
+  /** Presente solo en la vía de invitación (excepción al padrón SISA). */
   inviteModo?: "codigo";
-  jurisdiccion: string | null;
-  matricula: string;
   telefono_contacto: string;
 }
 
@@ -80,62 +71,36 @@ function texto(valor: unknown): string {
 
 function validarDatosMedico(
   datos: Record<string, unknown>,
-  opciones?: { bypass?: boolean; usuarioId?: string },
+  opciones?: { bypass?: boolean },
 ):
   | { error: null; status?: undefined; valores: DatosMedico }
   | { error: string; status: 400 | 403; valores: null } {
   const bypass = opciones?.bypass === true;
   const mutables: Record<string, unknown> = { ...datos };
 
-  // Modo bypass: autogenerar matrícula de prueba y completar faltantes para
-  // avanzar fluidamente en testing local (TEST-<8 chars del usuario).
+  // Modo bypass: completar faltantes para avanzar fluidamente en testing local.
   if (bypass) {
-    if (esMatriculaProvisoria(normalizarMatricula(mutables.matricula)) || texto(mutables.matricula).length === 0) {
-      const base = (opciones?.usuarioId ?? "").replace(/-/g, "").slice(0, 8).toUpperCase() || "GENERAL";
-      mutables.matricula = `TEST-${base}`;
-    }
     if (texto(mutables.especialidad).length < 3) {
       mutables.especialidad = "Medicina General";
     }
     if (texto(mutables.telefono_contacto ?? mutables.telefono).replace(/\D/g, "").length < 8) {
       mutables.telefono_contacto = "+54 11 0000-0000";
     }
-    if (texto(mutables.jurisdiccion).length === 0) {
-      mutables.jurisdiccion = "NACIONAL";
+  }
+
+  // Vía de invitación: código presente + mecanismo habilitado
+  // (`MEDICO_INVITE_CODE`). Falla cerrada: código inválido o mecanismo
+  // deshabilitado → 403. Suple al padrón SISA; el handler omite el contraste
+  // en este caso.
+  const codigoCrudo = texto(mutables.codigo_invitacion);
+  if (!bypass && codigoCrudo.length > 0) {
+    if (!invitacionMedicaHabilitada()) {
+      return { error: "El registro por invitación no está habilitado.", status: 403, valores: null };
     }
-  }
-
-  // Sin bypass activo, la credencial de prueba es un intento de uso de un
-  // canal privilegiado: 403 (prohibido), no 400 (dato malformado).
-  const esPrueba = esMatriculaDePrueba(normalizarMatricula(mutables.matricula));
-  if (esPrueba && !bypass) {
-    return {
-      error: "Las matrículas de prueba (TEST-...) solo están habilitadas para cuentas de desarrollo autorizadas.",
-      status: 403,
-      valores: null,
-    };
-  }
-
-  // Vía de invitación: matrícula ausente o en trámite + mecanismo habilitado
-  // (`MEDICO_INVITE_CODE`). Falla cerrada: sin código válido → 403. La
-  // provisoria `PENDIENTE-...` (única por usuario) reemplaza a la matrícula
-  // real hasta que el profesional la complete; el handler omite el padrón
-  // SISA en este caso. Sin secreto configurado se cae a la validación
-  // estricta clásica (matrícula obligatoria, 400).
-  const sinMatricula =
-    esMatriculaProvisoria(normalizarMatricula(mutables.matricula)) ||
-    texto(mutables.matricula).length === 0;
-  if (!bypass && sinMatricula && invitacionMedicaHabilitada()) {
     const invitacion = medicoAltaInvitacionSchema.safeParse({
       codigo_invitacion: mutables.codigo_invitacion,
       dni: mutables.dni,
       especialidad: mutables.especialidad,
-      jurisdiccion: mutables.jurisdiccion,
-      matricula:
-        texto(mutables.matricula).length > 0 &&
-        !esMatriculaProvisoria(normalizarMatricula(mutables.matricula))
-          ? mutables.matricula
-          : undefined,
       telefono_contacto: mutables.telefono_contacto ?? mutables.telefono,
     });
     if (!invitacion.success) {
@@ -151,28 +116,22 @@ function validarDatosMedico(
       };
     }
     const dni = normalizarDni(invitacion.data.dni);
-    const jurisdiccion = normalizarJurisdiccionSisa(invitacion.data.jurisdiccion);
     return {
       error: null,
       valores: {
         dni,
         especialidad: invitacion.data.especialidad.trim(),
         inviteModo: "codigo",
-        jurisdiccion,
-        matricula: matriculaProvisoriaPara(opciones?.usuarioId ?? ""),
         telefono_contacto: invitacion.data.telefono_contacto.trim(),
       },
     };
   }
 
-  // Validación estricta Zod (SISA/REFEPS): DNI + jurisdicción oficial +
-  // matrícula + teléfono + especialidad, todos obligatorios. El 400 detalla
-  // exactamente qué campo falló.
+  // Validación estricta Zod (DNI-only): DNI + teléfono + especialidad, todos
+  // obligatorios. El 400 detalla exactamente qué campo falló.
   const validacion = medicoAltaSchema.safeParse({
     dni: mutables.dni,
     especialidad: mutables.especialidad,
-    jurisdiccion: mutables.jurisdiccion,
-    matricula: mutables.matricula,
     telefono_contacto: mutables.telefono_contacto ?? mutables.telefono,
   });
   if (!validacion.success) {
@@ -180,15 +139,11 @@ function validarDatosMedico(
     return { error: mensaje, status: 400, valores: null };
   }
   const dni = normalizarDni(validacion.data.dni);
-  const jurisdiccion = normalizarJurisdiccionSisa(validacion.data.jurisdiccion);
-  const matricula = normalizarMatricula(validacion.data.matricula);
   return {
     error: null,
     valores: {
       dni,
       especialidad: validacion.data.especialidad.trim(),
-      jurisdiccion,
-      matricula,
       telefono_contacto: validacion.data.telefono_contacto.trim(),
     },
   };
@@ -245,19 +200,16 @@ function esConflictoUnico(codigo: string | undefined): boolean {
  * un patrón upsert robusto:
  * - Paciente/Institución: `crear_perfil_inicial` (idempotente por usuario).
  * - Médico: upsert directo por `usuario_id` con verificación previa de
- *   unicidad de matrícula (+jurisdicción/DNI) en paralelo con la lectura de la
- *   fila existente (409 amigable ante colisiones) y actualización de la fila
- *   provisoria cuando ya existe, evitando
- *   `duplicate key ... perfiles_medico_matricula_key`.
- * Seguridad del bypass: `isDevBypassActiveFor(usuario.email)` falla cerrado;
- * sin bypass, las matrículas `TEST-...` se rechazan con 403 y las provisorias
- * o vacías con 400. Solo desarrolladores autorizados reciben
+ *   unicidad global del DNI en paralelo con la lectura de la fila existente
+ *   (409 amigable ante colisiones). Si el rol ya estaba vinculado, la
+ *   operación es idempotente.
+ * Seguridad del bypass: `isDevBypassActiveFor(usuario.email)` falla cerrado.
+ * Solo desarrolladores autorizados reciben
  * `estado_verificacion = "verificado"`.
  * Vía de invitación médica (opcional, `MEDICO_INVITE_CODE` configurado):
- * matrícula ausente o en trámite + código válido → rol otorgado con matrícula
- * provisoria `PENDIENTE-...`, `estado_verificacion = "pendiente"` y SISA
+ * código válido → rol otorgado con `estado_verificacion = "pendiente"` y SISA
  * omitido (auditado con `invite_modo`). Código inválido/ausente → 403
- * fail-closed. Sin secreto rige la vía estricta (matrícula obligatoria).
+ * fail-closed. Sin secreto rige la vía estricta (SISA por DNI).
  * Si el rol ya estaba vinculado con datos reales, la operación es idempotente.
  */
 export async function POST(req: Request) {
@@ -289,7 +241,7 @@ export async function POST(req: Request) {
     // `isDevBypassActiveFor` falla cerrado: solo `true` para emails listados
     // en `DEV_ADMIN_EMAILS` (y fuera de producción salvo flag explícito).
     const bypass = isDevBypassActiveFor(usuario.email ?? null);
-    const validacion = validarDatosMedico(datos, { bypass, usuarioId: usuario.id });
+    const validacion = validarDatosMedico(datos, { bypass });
     if (validacion.error || !validacion.valores) {
       return jsonError(
         validacion.error ?? "Datos del perfil médico inválidos.",
@@ -298,19 +250,11 @@ export async function POST(req: Request) {
     }
     const valores = validacion.valores;
 
-    // Unicidad rigurosa (matrícula + DNI global: una cuenta por DNI) + padrón
-    // SISA + fila existente: consultas independientes en un único `Promise.all`.
-    // Vía de invitación (`inviteModo`): la provisoria `PENDIENTE-...` es única
-    // por construcción (no requiere chequeo de colisión real) y el padrón SISA
-    // se omite (sin matrícula no hay qué contrastar); el DNI global sí se
-    // exige siempre (409).
-    const [unicidad, dniGlobal, sisaRes, existenteRes] = await Promise.all([
-      verificarUnicidadMedico(admin, {
-        dni: valores.dni,
-        jurisdiccion: valores.jurisdiccion,
-        matricula: valores.matricula,
-        usuarioId: usuario.id,
-      }),
+    // Unicidad global del DNI (una cuenta por DNI) + padrón SISA por DNI +
+    // fila existente: consultas independientes en un único `Promise.all`.
+    // Vía de invitación (`inviteModo`): el padrón SISA se omite (excepción
+    // auditada); el DNI global sí se exige siempre (409).
+    const [dniGlobal, sisaRes, existenteRes] = await Promise.all([
       valores.dni
         ? verificarDniGlobal(admin, { dni: valores.dni, usuarioId: usuario.id })
         : Promise.resolve<{ conflicto: string | null; error?: { code?: string; message: string } }>({ conflicto: null }),
@@ -319,24 +263,18 @@ export async function POST(req: Request) {
         : verificarProfesionalSisa({ dni: valores.dni }),
       admin
         .from("perfiles_medico")
-        .select("id, matricula")
+        .select("id")
         .eq("usuario_id", usuario.id)
         .maybeSingle(),
     ]);
-    if (unicidad.error) {
-      return jsonError("No se pudo verificar la matrícula. Reintentá.", 500, unicidad.error.code);
-    }
-    if (unicidad.conflicto) {
-      return jsonError(unicidad.conflicto, 409);
-    }
     if (dniGlobal.error) {
       return jsonError("No se pudo verificar el DNI. Reintentá.", 500, dniGlobal.error.code);
     }
     if (dniGlobal.conflicto) {
       return jsonError(dniGlobal.conflicto, 409);
     }
-    // Sin bypass, la credencial debe coincidir con el padrón SISA/REFEPS: si
-    // el médico no está registrado o los datos no coinciden, alta bloqueada.
+    // Sin bypass, el DNI debe pertenecer a un profesional habilitado en el
+    // padrón SISA/REFEPS; si no, alta bloqueada.
     if (!sisaRes.ok) {
       return jsonError(sisaRes.mensaje || MENSAJE_SISA, 403);
     }
@@ -346,8 +284,8 @@ export async function POST(req: Request) {
       return jsonError(existenteError.message, 500, existenteError.code);
     }
 
-    // Fila con datos reales: vinculación idempotente, nada que cambiar.
-    if (existente && !esMatriculaProvisoria((existente as { matricula?: unknown }).matricula)) {
+    // Fila existente: vinculación idempotente, nada que cambiar.
+    if (existente) {
       return jsonOk({ bypass, rol, verificacion: verificacionPara(usuario.email ?? null), yaExistia: true });
     }
 
@@ -356,19 +294,13 @@ export async function POST(req: Request) {
       dni: valores.dni,
       especialidad: valores.especialidad,
       estadoVerificacion: verificacion,
-      // Vía de invitación: marca la excepción; vía estricta con matrícula
-      // real: la limpia (regularización, opera ya sin excepción).
+      // Vía de invitación: marca la excepción; vía estricta: la limpia.
       inviteModo: valores.inviteModo ?? null,
-      jurisdiccion: valores.jurisdiccion,
-      matricula: valores.matricula,
       telefonoContacto: valores.telefono_contacto,
     }, Boolean(existente));
     if (persistError) {
       if (esConflictoUnico(persistError.code)) {
-        return jsonError(
-          mensajeConflictoMatricula(valores.matricula, valores.jurisdiccion),
-          409,
-        );
+        return jsonError(MENSAJE_DNI_DUPLICADO, 409);
       }
       return jsonError(persistError.message, 500, persistError.code);
     }

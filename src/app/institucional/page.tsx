@@ -971,7 +971,7 @@ onClick={() => recargarLogs()}
 
         <TarjetaInformativa
           icon={<ShieldCheck size={15} />}
-          mensaje="Los pacientes se anonimizan con el formato PAC-****-XXXX; los operadores se muestran con su nombre real (médico con matrícula o institución) para garantizar la trazabilidad exigida por la Ley 25.326. Cada consulta a este panel genera su propio registro de auditoría."
+          mensaje="Los pacientes se anonimizan con el formato PAC-****-XXXX; los operadores se muestran con su nombre real (médico con DNI o institución) para garantizar la trazabilidad exigida por la Ley 25.326. Cada consulta a este panel genera su propio registro de auditoría."
           titulo="Auditoría registrada"
         />
       </div>

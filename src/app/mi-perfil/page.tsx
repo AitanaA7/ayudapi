@@ -235,16 +235,16 @@ export default function MiPerfilPage() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center mb-4">
               <div className="bg-gray-50 rounded-xl py-3">
-                <p className="text-xs text-gray-400">Matrícula</p>
-                <p className="font-semibold text-gray-900 text-sm break-all">{data.perfil_medico?.matricula ?? "—"}</p>
-              </div>
-              <div className="bg-gray-50 rounded-xl py-3">
-                <p className="text-xs text-gray-400">DNI · Jurisdicción</p>
-                <p className="font-semibold text-gray-900 text-sm">{data.perfil_medico?.dni ?? "—"} · {data.perfil_medico?.jurisdiccion ?? "—"}</p>
+                <p className="text-xs text-gray-400">DNI</p>
+                <p className="font-semibold text-gray-900 text-sm break-all">{data.perfil_medico?.dni ?? "—"}</p>
               </div>
               <div className="bg-gray-50 rounded-xl py-3">
                 <p className="text-xs text-gray-400">Contacto</p>
                 <p className="font-semibold text-gray-900 text-sm">{data.perfil_medico?.telefono_contacto ?? "—"}</p>
+              </div>
+              <div className="bg-gray-50 rounded-xl py-3">
+                <p className="text-xs text-gray-400">Verificación SISA</p>
+                <p className="font-semibold text-gray-900 text-sm">{data.perfil_medico?.estado_verificacion ?? "pendiente"}</p>
               </div>
             </div>
             <p className="text-xs text-gray-400 mb-4 text-center">

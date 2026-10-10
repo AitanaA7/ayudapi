@@ -101,8 +101,9 @@ export interface PerfilMedicoRow {
   institucion_id: string | null;
   /** Excepción por invitación (`'codigo'`): opera pendiente de regularización. */
   invite_modo?: string | null;
+  /** Legado opcional: ya no se solicita en el alta (nullable desde la migración DNI-only). */
   jurisdiccion?: string | null;
-  matricula: string;
+  matricula: string | null;
   telefono_contacto: string | null;
   usuario_id: string;
   creado_en: string;

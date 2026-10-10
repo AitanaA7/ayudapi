@@ -9,18 +9,13 @@
  *   producción para evitar aperturas accidentales.
  *
  * Efecto cuando está activo para el email autenticado:
- * - Se omiten las restricciones duras de verificación externa de matrícula
- *   (hoy: validación de formato + unicidad; punto de extensión para un futuro
- *   padrón de colegios profesionales).
- * - Se aceptan matrículas de prueba con prefijo `TEST-` (p. ej. `TEST-001`).
+ * - Se omite la verificación externa del padrón SISA/REFEPS por DNI.
  * - Se autoasigna `estado_verificacion = "verificado"` para desbloquear el
  *   testeo de subida de estudios e historial médico completo.
  *
  * Seguridad: el bypass NUNCA desactiva la autenticación (Bearer requerido) ni
  * el control de unicidad en base de datos (409 ante colisiones reales).
  */
-
-export const TEST_MATRICULA_PREFIX = "TEST-";
 
 export const VERIFICACION_VERIFICADO = "verificado";
 export const VERIFICACION_PENDIENTE = "pendiente";
@@ -63,35 +58,6 @@ export function isDevBypassActiveFor(email: string | null | undefined): boolean 
     return false;
   }
   return true;
-}
-
-export function isTestMatricula(matricula: string | null | undefined): boolean {
-  if (typeof matricula !== "string") {
-    return false;
-  }
-  return matricula.trim().toUpperCase().startsWith(TEST_MATRICULA_PREFIX);
-}
-
-/** Código de error para el intento de usar matrícula de prueba sin permiso. */
-export const CODIGO_BYPASS_REQUERIDO = "BYPASS_REQUERIDO";
-
-/**
- * Guard centralizado del bypass. Devuelve el mensaje de bloqueo (para
- * responder 403) si `matricula` usa el prefijo de prueba y `email` no tiene
- * bypass activo; `null` si está permitida. Falla cerrado: sin email o sin
- * `DEV_ADMIN_EMAILS` configurado, toda `TEST-...` se bloquea.
- */
-export function motivoBloqueoMatriculaDePrueba(
-  email: string | null | undefined,
-  matricula: unknown,
-): string | null {
-  if (!isTestMatricula(typeof matricula === "string" ? matricula : null)) {
-    return null;
-  }
-  if (isDevBypassActiveFor(email)) {
-    return null;
-  }
-  return "Las matrículas de prueba (TEST-...) solo están habilitadas para cuentas de desarrollo autorizadas (DEV_ADMIN_EMAILS).";
 }
 
 /** Estado de verificación a persistir/retornar según bypass. */

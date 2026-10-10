@@ -1,6 +1,5 @@
 import type { RolUsuario } from "@/lib/supabase/database";
 
-import { CODIGO_BYPASS_REQUERIDO } from "@/lib/auth/dev-bypass";
 import { confirmarYProvisionar } from "@/lib/auth/registro";
 import {
   getBearerToken,
@@ -39,13 +38,6 @@ export async function GET(req: Request) {
       const resultado = await confirmarYProvisionar(createAdminServerClient(), user);
       rol = resultado.rol;
     } catch (error) {
-      if ((error as { code?: string } | null)?.code === CODIGO_BYPASS_REQUERIDO) {
-        console.error("[auth/rol] Matrícula de prueba sin bypass autorizado.");
-        return jsonError(
-          error instanceof Error ? error.message : "Matrícula de prueba no autorizada.",
-          403,
-        );
-      }
       console.error("[auth/rol] No se pudo provisionar el rol:", error);
       return jsonError("No se pudo completar el alta del perfil. Reintentá.", 500);
     }

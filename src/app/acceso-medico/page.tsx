@@ -167,7 +167,7 @@ export default function AccesoMedicoPage() {
             <p className="text-xs text-amber-800 leading-relaxed">
               <strong>Acceso auditado:</strong> ingresá con Google y, si aún no
               tenés cuenta, elegí el rol <strong>Médico/a</strong> con tu
-              matrícula profesional en el panel de vinculación. Cada consulta
+              DNI en el panel de vinculación. Cada consulta
               queda registrada. Ley 25.326.
             </p>
           </div>

@@ -234,7 +234,7 @@ export default function HomePage() {
                 icon: <Activity className="text-emerald-600" size={18} />,
                 iconBg: "bg-emerald-50",
                 title: "Acceso profesional certificado",
-                desc: "Iniciá sesión con tu matrícula profesional para acceder a datos clínicos completos: medicación, estudios, notas del paciente e historial de alertas.",
+                desc: "Iniciá sesión como profesional verificado en el padrón SISA para acceder a datos clínicos completos: medicación, estudios, notas del paciente e historial de alertas.",
                 btn: "Acceso médico",
                 btnClass: "bg-emerald-600 hover:bg-emerald-700 text-white",
                 href: "/acceso-medico",

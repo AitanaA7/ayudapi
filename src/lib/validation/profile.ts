@@ -138,10 +138,11 @@ export function esCuitEstrictoValido(cuit: unknown): boolean {
 }
 
 /**
- * Estándar SISA/REFEPS — validación estricta de identidad y credenciales.
+ * Estándar SISA/REFEPS — validación estricta de identidad (modelo DNI-only).
  * El DNI es obligatorio y debe ser exactamente 7 u 8 dígitos numéricos, sin
  * puntos, espacios ni letras. Nada de tolerancias: "30.123.456" o "ABC1234"
  * son inválidos y deben responder HTTP 400 con el campo detallado.
+ * La matrícula y la jurisdicción ya no se solicitan ni se validan.
  */
 export const DNI_REGEX_ESTRICTO = /^\d{7,8}$/;
 
@@ -150,95 +151,6 @@ export function esDniEstrictoValido(dni: unknown): boolean {
     return false;
   }
   return DNI_REGEX_ESTRICTO.test(String(dni).trim());
-}
-
-/**
- * Jurisdicciones emisoras reconocidas por SISA/REFEPS (canónico en
- * mayúsculas, sin acentos). El alta médica exige una de estas: "NACIONAL"
- * (matrícula nacional) o la provincia emisora.
- */
-export const JURISDICCIONES_SISA = [
-  "NACIONAL",
-  "CABA",
-  "BUENOS AIRES",
-  "CATAMARCA",
-  "CHACO",
-  "CHUBUT",
-  "CORDOBA",
-  "CORRIENTES",
-  "ENTRE RIOS",
-  "FORMOSA",
-  "JUJUY",
-  "LA PAMPA",
-  "LA RIOJA",
-  "MENDOZA",
-  "MISIONES",
-  "NEUQUEN",
-  "RIO NEGRO",
-  "SALTA",
-  "SAN JUAN",
-  "SAN LUIS",
-  "SANTA CRUZ",
-  "SANTA FE",
-  "SANTIAGO DEL ESTERO",
-  "TIERRA DEL FUEGO",
-  "TUCUMAN",
-] as const;
-
-export type JurisdiccionSisa = (typeof JURISDICCIONES_SISA)[number];
-
-function sinAcentos(mayusculas: string): string {
-  return mayusculas
-    .replace(/Á/g, "A")
-    .replace(/É/g, "E")
-    .replace(/Í/g, "I")
-    .replace(/Ó/g, "O")
-    .replace(/Ú/g, "U")
-    .replace(/Ü/g, "U");
-}
-
-/** Normaliza jurisdicción al canónico SISA (mayúsculas, sin acentos). */
-export function normalizarJurisdiccionSisa(jurisdiccion: unknown): string | null {
-  if (typeof jurisdiccion !== "string") {
-    return null;
-  }
-  const limpio = sinAcentos(jurisdiccion.trim().toUpperCase()).replace(/\s+/g, " ");
-  return limpio.length > 0 ? limpio : null;
-}
-
-/** `true` solo si la jurisdicción pertenece al padrón oficial SISA/REFEPS. */
-export function esJurisdiccionSisaValida(jurisdiccion: unknown): boolean {
-  const normalizada = normalizarJurisdiccionSisa(jurisdiccion);
-  if (!normalizada) {
-    return false;
-  }
-  return (JURISDICCIONES_SISA as readonly string[]).includes(normalizada);
-}
-
-/**
- * Matrícula profesional real (no de prueba): 4 a 8 dígitos, con o sin
- * prefijo de tipo (MN/MP/ME). Ej: "123456", "MN 123456", "MP-123456".
- * "MP 1234" cumple el formato pero igual debe pasar la verificación SISA;
- * el formato solo no habilita.
- */
-// eslint-disable-next-line security/detect-unsafe-regex -- prefijo opcional acotado + 4-8 dígitos: tiempo lineal, sin backtracking anidado.
-export const MATRICULA_REAL_REGEX = /^(?:(?:MN|MP|ME)[\s.-]?)?[0-9]{4,8}$/;
-
-export function esMatriculaRealValida(matricula: unknown): boolean {
-  if (typeof matricula !== "string") {
-    return false;
-  }
-  return MATRICULA_REAL_REGEX.test(matricula.trim().toUpperCase());
-}
-
-/** Matrícula de prueba del bypass (`TEST-...`, 1 a 20 alfanuméricos/guiones). */
-export const MATRICULA_PRUEBA_REGEX = /^TEST-[A-Z0-9-]{1,20}$/;
-
-export function esMatriculaPruebaValida(matricula: unknown): boolean {
-  if (typeof matricula !== "string") {
-    return false;
-  }
-  return MATRICULA_PRUEBA_REGEX.test(matricula.trim().toUpperCase());
 }
 
 /**
@@ -255,64 +167,6 @@ export function esTelefonoValido(telefono: unknown): boolean {
   }
   const digitos = texto.replace(/\D/g, "");
   return digitos.length >= 8 && digitos.length <= 15;
-}
-
-export function normalizarTelefono(telefono: unknown): string | null {
-  if (typeof telefono !== "string" && typeof telefono !== "number") {
-    return null;
-  }
-  const texto = String(telefono).trim();
-  return texto.length > 0 ? texto : null;
-}
-
-export function esMatriculaValida(matricula: string): boolean {
-  const limpio = matricula.trim();
-  if (limpio.length < 4) {
-    return false;
-  }
-  return /^[A-Za-zÁÉÍÓÚáéíóúÑñ0-9\s.\-/]+$/.test(limpio);
-}
-
-/** Normaliza matrícula para comparar/persistir (trim + mayúsculas). */
-export function normalizarMatricula(matricula: unknown): string {
-  return typeof matricula === "string" ? matricula.trim().toUpperCase() : "";
-}
-
-/** Matrículas de prueba del modo bypass (`TEST-...`, case-insensitive). */
-export function esMatriculaDePrueba(matricula: unknown): boolean {
-  if (typeof matricula !== "string") {
-    return false;
-  }
-  return matricula.trim().toUpperCase().startsWith("TEST-");
-}
-
-/**
- * Jurisdicción emisora de la matrícula (opcional). Vacío = válido (no
- * informado). Con valor: 2 a 32 caracteres alfabéticos/espacios/puntos.
- */
-export function esJurisdiccionValida(jurisdiccion: unknown): boolean {
-  if (jurisdiccion === undefined || jurisdiccion === null) {
-    return true;
-  }
-  if (typeof jurisdiccion !== "string") {
-    return false;
-  }
-  const limpio = jurisdiccion.trim();
-  if (limpio.length === 0) {
-    return true;
-  }
-  if (limpio.length < 2 || limpio.length > 32) {
-    return false;
-  }
-  return /^[A-Za-zÁÉÍÓÚáéíóúÑñ\s.\-/]+$/.test(limpio);
-}
-
-export function normalizarJurisdiccion(jurisdiccion: unknown): string | null {
-  if (typeof jurisdiccion !== "string") {
-    return null;
-  }
-  const limpio = jurisdiccion.trim().toUpperCase();
-  return limpio.length > 0 ? limpio : null;
 }
 
 /**
@@ -339,33 +193,6 @@ export function normalizarDni(dni: unknown): string | null {
   }
   const digitos = String(dni).replace(/\D/g, "");
   return digitos.length > 0 ? digitos : null;
-}
-
-/**
- * Detecta valores provisorios de matrícula que no identifican a un profesional
- * real: cadenas vacías, el histórico "S/M" y los generados "PENDIENTE-XXXXXXXX".
- * Como `matricula` es UNIQUE en base de datos, estos valores nunca deben
- * persistirse para más de un usuario.
- */
-export function esMatriculaProvisoria(matricula: unknown): boolean {
-  if (typeof matricula !== "string") {
-    return true;
-  }
-  const limpio = matricula.trim();
-  if (limpio.length === 0) {
-    return true;
-  }
-  const minusculas = limpio.toLowerCase();
-  return minusculas === "s/m" || minusculas.startsWith("pendiente-");
-}
-
-/**
- * Genera una matrícula provisoria única por usuario para el alta inicial. Se
- * reemplaza por la matrícula real en la vinculación o el completado de perfil.
- */
-export function matriculaProvisoriaPara(usuarioId: string): string {
-  const base = usuarioId.replace(/-/g, "").slice(0, 8).toUpperCase() || "XXXXXXXX";
-  return `PENDIENTE-${base}`;
 }
 
 export function validarPerfilObligatorios(perfil: {
@@ -407,16 +234,18 @@ export function perfilPacienteCompleto(perfil: {
 
 /**
  * Valida que el perfil del médico tenga los datos obligatorios para operar de
- * manera auditada: matrícula real (no valores provisorios como "S/M" o
- * "PENDIENTE-XXXXXXXX"), especialidad y teléfono de contacto.
+ * manera auditada (modelo DNI-only): DNI válido (7-8 dígitos), especialidad
+ * y teléfono de contacto.
  */
 export function perfilMedicoCompleto(perfil: {
+  dni?: unknown;
   especialidad?: unknown;
-  matricula?: unknown;
   telefono_contacto?: unknown;
 }): boolean {
-  const matricula =
-    typeof perfil.matricula === "string" ? perfil.matricula.trim() : "";
+  const dni =
+    typeof perfil.dni === "string" || typeof perfil.dni === "number"
+      ? String(perfil.dni).trim()
+      : "";
   const especialidad =
     typeof perfil.especialidad === "string" ? perfil.especialidad.trim() : "";
   const telefono =
@@ -424,10 +253,7 @@ export function perfilMedicoCompleto(perfil: {
       ? perfil.telefono_contacto.trim()
       : "";
 
-  if (esMatriculaProvisoria(matricula)) {
-    return false;
-  }
-  if (!esMatriculaValida(matricula)) {
+  if (!esDniEstrictoValido(dni)) {
     return false;
   }
   if (especialidad.length < 3) {
@@ -455,20 +281,18 @@ export function esMedicoInvitado(perfil: {
 
 /**
  * Gate operativo del panel clínico (etapa de desarrollo): el estado
- * "pendiente" —incluida la matrícula provisoria `PENDIENTE-...` generada por
- * código de invitación— posee exactamente los mismos permisos de acceso y
+ * "pendiente" posee exactamente los mismos permisos de acceso y
  * operación (escanear QR, ver historial clínico, acceder a estudios) que un
  * médico verificado por SISA, sin bloqueos ni excepciones restrictivas.
  *
- * Equivale a: perfil completo (SISA) O excepción por invitación O estado
- * pendiente O matrícula provisoria. La regularización a matrícula definitiva
- * se sugiere solo con un banner informativo no bloqueante en la UI.
+ * Equivale a: perfil completo (DNI + especialidad + teléfono) O excepción
+ * por invitación O estado pendiente.
  */
 export function perfilMedicoOperativo(perfil: {
+  dni?: unknown;
   especialidad?: unknown;
   estado_verificacion?: unknown;
   invite_modo?: unknown;
-  matricula?: unknown;
   telefono_contacto?: unknown;
 } | null | undefined): boolean {
   if (!perfil) {
@@ -489,21 +313,16 @@ export function perfilMedicoOperativo(perfil: {
   if (estado === "pendiente") {
     return true;
   }
-  if (esMatriculaProvisoria((perfil as { matricula?: unknown }).matricula)) {
-    return true;
-  }
   return false;
 }
 
 /**
  * `true` si el médico opera con credencial pendiente de regularización
- * (`estado_verificacion = "pendiente"` o matrícula provisoria). Solo para
- * mostrar un banner informativo no bloqueante que sugiera actualizar a la
- * matrícula definitiva; nunca debe usarse para bloquear el acceso.
+ * (`estado_verificacion = "pendiente"`). Solo para mostrar un banner
+ * informativo no bloqueante; nunca debe usarse para bloquear el acceso.
  */
 export function esMedicoPendienteInformativo(perfil: {
   estado_verificacion?: unknown;
-  matricula?: unknown;
 } | null | undefined): boolean {
   if (!perfil || typeof perfil !== "object") {
     return false;
@@ -517,10 +336,5 @@ export function esMedicoPendienteInformativo(perfil: {
           .trim()
           .toLowerCase()
       : "";
-  if (estado === "pendiente") {
-    return true;
-  }
-  return esMatriculaProvisoria(
-    (perfil as { matricula?: unknown }).matricula,
-  );
+  return estado === "pendiente";
 }

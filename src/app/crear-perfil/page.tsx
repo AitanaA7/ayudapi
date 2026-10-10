@@ -654,7 +654,7 @@ export default function CreateProfilePage() {
                   {[
                     { checked: shareLocation, key: "shareLocation", locked: true, onChange: setShareLocation, title: "Compartir ubicación en emergencias", desc: "Al presionar el botón de alerta, se enviará tu ubicación GPS al SAME y tus contactos ICE." },
                     { checked: publicProfile, key: "publicProfile", locked: true, onChange: setPublicProfile, title: "Perfil público de emergencia", desc: "Cualquier persona con tu QR puede ver tu alias, condiciones críticas y contactos ICE." },
-                    { checked: medAccess, key: "medAccess", locked: false, onChange: setMedAccess, title: "Acceso ampliado para médicos certificados", desc: "Los médicos y paramédicos con matrícula verificada pueden acceder a tu historial completo." },
+                    { checked: medAccess, key: "medAccess", locked: false, onChange: setMedAccess, title: "Acceso ampliado para médicos certificados", desc: "Los médicos y paramédicos verificados en el padrón SISA pueden acceder a tu historial completo." },
                     { checked: obraReports, key: "obraReports", locked: false, onChange: setObraReports, title: "Reportes a obra social (anonimizado)", desc: "Permite que tu obra social reciba datos de siniestralidad anónimos para mejorar la cobertura." },
                   ].map(({ checked, key, locked, onChange, title, desc }) => (
                     <div className="flex items-start justify-between gap-4 py-3 border-b border-gray-100 last:border-0" key={key}>

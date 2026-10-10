@@ -246,11 +246,11 @@ begin
       grupo_sanguineo = coalesce(excluded.grupo_sanguineo, public.perfiles_paciente.grupo_sanguineo);
 
   elsif p_rol = 'medico' then
-    -- `matricula` es UNIQUE: nunca se persiste un provisorio compartido
-    -- ("S/M"). Sin matrícula real se genera una provisoria única por usuario
-    -- que luego se reemplaza en la vinculación o el completado de perfil.
-    -- Persiste además DNI, jurisdicción y estado de verificación SISA cuando
-    -- viajan en `p_datos` (alta por email/contraseña y OAuth).
+    -- Modelo DNI-only: la identidad del profesional es su DNI (único global).
+    -- `matricula`/`jurisdiccion` son legado opcional y ya no se solicitan en
+    -- el alta: se persisten NULL cuando no viajan en `p_datos`. Persiste
+    -- además DNI y estado de verificación SISA cuando viajan en `p_datos`
+    -- (alta por email/contraseña y OAuth).
     -- `invite_modo` ('codigo') marca la excepción por invitación
     -- (`MEDICO_INVITE_CODE`): habilita la operación clínica pendiente de
     -- regularización y etiqueta su auditoría. Solo viaja en altas por
@@ -258,17 +258,7 @@ begin
     insert into public.perfiles_medico (usuario_id, matricula, especialidad, telefono_contacto, dni, jurisdiccion, estado_verificacion, invite_modo)
     values (
       p_usuario_id,
-      coalesce(
-        nullif(
-          case lower(coalesce(p_datos->>'matricula', ''))
-            when '' then null
-            when 's/m' then null
-            else upper(p_datos->>'matricula')
-          end,
-          ''
-        ),
-        'PENDIENTE-' || upper(left(replace(p_usuario_id::text, '-', ''), 8))
-      ),
+      nullif(upper(p_datos->>'matricula'), ''),
       p_datos->>'especialidad',
       p_datos->>'telefono_contacto',
       nullif(p_datos->>'dni', ''),
@@ -770,3 +760,17 @@ grant execute on function public.zona_id(double precision, double precision) to 
 grant execute on function public.zona_centro_lng(double precision) to service_role;
 grant execute on function public.zona_centro_lat(double precision) to service_role;
 grant execute on function public.patologias_array(jsonb) to service_role;
+
+-- =============================================================================
+-- Migración: alta médica DNI-only (sin matrícula ni jurisdicción obligatorias)
+-- Idempotente: seguro re-ejecutar. Desde esta migración la identidad del
+-- profesional es su DNI (`perfiles_medico_dni_key` parcial ya lo hace único):
+-- `matricula` pasa a nullable (el UNIQUE base se conserva: en Postgres los
+-- NULL no colisionan entre sí, pero los valores reales heredados siguen
+-- protegidos). El código persiste NULL cuando el alta no la informa y el RPC
+-- `crear_perfil_inicial` ya no genera provisorios `PENDIENTE-...`.
+-- La tabla `padron_profesionales` queda como legado sin uso (la validación
+-- SISA la resuelve el microservicio de scraping por DNI).
+-- =============================================================================
+alter table public.perfiles_medico
+  alter column matricula drop not null;
