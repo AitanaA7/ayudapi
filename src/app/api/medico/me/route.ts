@@ -2,7 +2,7 @@ import type { PerfilMedicoRow } from "@/lib/supabase/database";
 
 import { parseJsonBody } from "@/lib/api/http";
 import { ipDeRequest, registrarActividadSesion } from "@/lib/auth/actividad-servidor";
-import { isDevBypassActiveFor, verificacionPara } from "@/lib/auth/dev-bypass";
+import { isDevBypassActiveFor, VERIFICACION_PENDIENTE, VERIFICACION_VERIFICADO } from "@/lib/auth/dev-bypass";
 import {
   CODIGO_MEDICO_INVALIDO,
   invitacionMedicaHabilitada,
@@ -29,6 +29,7 @@ import {
   detalle400DesdeZod,
   medicoAltaInvitacionSchema,
   medicoAltaSchema,
+  MENSAJE_DNI_MEDICO_DUPLICADO,
   MENSAJE_SISA,
 } from "@/lib/validation/schemas";
 
@@ -212,7 +213,7 @@ export async function PUT(req: Request) {
     return jsonError("No se pudo verificar el DNI. Reintentá.", 500, dniGlobal.error.code);
   }
   if (dniGlobal.conflicto) {
-    return jsonError(dniGlobal.conflicto, 409);
+    return jsonError(MENSAJE_DNI_MEDICO_DUPLICADO, 409);
   }
   if (!sisaRes.ok) {
     return jsonError(sisaRes.mensaje || MENSAJE_SISA, 403);
@@ -226,19 +227,24 @@ export async function PUT(req: Request) {
     return jsonError("Perfil de médico no encontrado. Reintentá el alta.", 404);
   }
 
-  const verificacion = verificacionPara(usuario.email);
+  // SISA ok ⇒ verificado (sin banner pendiente); invitación ⇒ pendiente.
+  const verificacion = inviteModo ? VERIFICACION_PENDIENTE : VERIFICACION_VERIFICADO;
+  // Autocompletado SISA: nombre/apellido del padrón al perfil.
+  const profesionalSisa = sisaRes.ok && "profesional" in sisaRes ? sisaRes.profesional : null;
   const { error } = await guardarPerfilMedico(admin, usuario.id, {
+    apellido: profesionalSisa?.apellido ?? null,
     dni,
     especialidad,
     estadoVerificacion: verificacion,
     // Vía de invitación: marca la excepción; vía estricta: la limpia.
     inviteModo: inviteModo ?? null,
+    nombre: profesionalSisa?.nombre ?? null,
     telefonoContacto: telefono,
   }, true);
   if (error) {
     // Carrera de concurrencia contra la verificación previa: mismo 409 amigable.
     if (error.code === "23505") {
-      return jsonError("Ese DNI ya está registrado en otra cuenta. Verificá el número ingresado.", 409);
+      return jsonError(MENSAJE_DNI_MEDICO_DUPLICADO, 409);
     }
     return jsonError(error.message, 500, error.code);
   }

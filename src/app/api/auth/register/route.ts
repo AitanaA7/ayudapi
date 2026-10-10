@@ -6,7 +6,7 @@ import { parseJsonBody } from "@/lib/api/http";
 import { ipDeRequest, registrarActividadSesion } from "@/lib/auth/actividad-servidor";
 import {
   isDevBypassActiveFor,
-  verificacionPara,
+  VERIFICACION_VERIFICADO,
 } from "@/lib/auth/dev-bypass";
 import {
   CODIGO_INSTITUCION_INVALIDO,
@@ -21,7 +21,7 @@ import {
 } from "@/lib/auth/invitacion";
 import { confirmarYProvisionar } from "@/lib/auth/registro";
 import { jsonError, jsonOk } from "@/lib/auth/session";
-import { verificarProfesionalSisa } from "@/lib/auth/sisa";
+import { verificarProfesionalSisa, type ProfesionalSisa } from "@/lib/auth/sisa";
 import {
   verificarDniGlobal,
 } from "@/lib/auth/verificacion-medico";
@@ -35,6 +35,7 @@ import {
   medicoAltaSchema,
   MENSAJE_CUIT_DUPLICADO,
   MENSAJE_DNI_DUPLICADO,
+  MENSAJE_DNI_MEDICO_DUPLICADO,
   normalizarInstitucionCruda,
 } from "@/lib/validation/schemas";
 
@@ -116,6 +117,8 @@ export async function POST(req: Request) {
   let telefonoNormalizado: string | undefined;
   let especialidadNormalizada: string | undefined;
   let verificacionMedica = "pendiente";
+  /** Nombre/apellido autocompletados desde el padrón SISA (vía estricta). */
+  let profesionalSisa: ProfesionalSisa | null = null;
   /** Modo de la vía de invitación médica, si se usó. */
   let inviteMedicoModo: ModoInvitacion | null = null;
 
@@ -151,7 +154,7 @@ export async function POST(req: Request) {
       // Sin contraste SISA: solo la unicidad global del DNI (409).
       const dniRes = await verificarDniGlobal(admin, { dni: dniNormalizado, usuarioId: SIN_USUARIO });
       if (dniRes.conflicto) {
-        return jsonError(MENSAJE_DNI_DUPLICADO, 409);
+        return jsonError(MENSAJE_DNI_MEDICO_DUPLICADO, 409);
       }
       telefonoNormalizado = validacion.data.telefono_contacto.trim();
       especialidadNormalizada = validacion.data.especialidad.trim();
@@ -195,12 +198,15 @@ export async function POST(req: Request) {
           : verificarProfesionalSisa({ dni: dniNormalizado }),
       ]);
       if (dniRes.conflicto) {
-        return jsonError(MENSAJE_DNI_DUPLICADO, 409);
+        return jsonError(MENSAJE_DNI_MEDICO_DUPLICADO, 409);
       }
       if (!sisaRes.ok) {
         return jsonError(sisaRes.mensaje, 403);
       }
-      verificacionMedica = verificacionPara(email);
+      // Autocompletado SISA: nombre/apellido del padrón al perfil.
+      profesionalSisa = "profesional" in sisaRes ? sisaRes.profesional : null;
+      // SISA ok ⇒ profesional habilitado: nace verificado (sin banner).
+      verificacionMedica = VERIFICACION_VERIFICADO;
     }
   }
 
@@ -293,6 +299,7 @@ export async function POST(req: Request) {
   // `invite_modo` marca la excepción médica por invitación para el RPC.
   const datos: Record<string, unknown> = {
     alias: input.alias,
+    apellido: profesionalSisa?.apellido ?? undefined,
     cuit: institucionNormalizada?.cuit ?? input.cuit,
     direccion: institucionNormalizada?.direccion,
     dni: dniNormalizado,
@@ -302,7 +309,7 @@ export async function POST(req: Request) {
     especialidad: especialidadNormalizada ?? input.especialidad,
     estado_verificacion: rol === "medico" ? verificacionMedica : undefined,
     invite_modo: inviteMedicoModo ?? undefined,
-    nombre: institucionNormalizada?.nombre ?? input.nombre,
+    nombre: profesionalSisa?.nombre ?? input.nombre,
     nombre_completo: input.nombre_completo,
     telefono: institucionNormalizada?.telefono,
     telefono_contacto:

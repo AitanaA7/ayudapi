@@ -17,11 +17,16 @@ import { MENSAJE_SISA } from "@/lib/validation/schemas";
  * (`DEV_ADMIN_EMAILS`) lo gobiernan los callers, nunca este módulo.
  */
 
+export interface ProfesionalSisa {
+  apellido: string | null;
+  nombre: string | null;
+}
+
 export type ResultadoSisa =
   | { mensaje: string; ok: false }
-  | { ok: true };
+  | { ok: true; profesional: ProfesionalSisa | null };
 
-const MENSAJE_REINTENTO = "No se pudo verificar la matrícula con el padrón. Reintentá.";
+const MENSAJE_REINTENTO = "No se pudo verificar el DNI con el padrón. Reintentá.";
 
 function timeoutMs(): number {
   const valor = Number.parseInt(process.env.SISA_SCRAPE_TIMEOUT_MS ?? "", 10);
@@ -33,20 +38,39 @@ function urlConsulta(): string | null {
   return base ? `${base}/api/sisa/consulta` : null;
 }
 
-/** `true` solo si el microservicio halló al profesional y está habilitado. */
-function esProfesionalHabilitado(data: unknown): boolean {
+function textoOpcional(valor: unknown): string | null {
+  if (typeof valor !== "string") {
+    return null;
+  }
+  const limpio = valor.replace(/\s+/g, " ").trim();
+  return limpio.length > 0 ? limpio : null;
+}
+
+/**
+ * Extrae el profesional habilitado de la respuesta (`null` si no hay
+ * coincidencia habilitada). Los callers persisten nombre/apellido en el
+ * perfil para no pedirlos manualmente.
+ */
+function extraerProfesionalHabilitado(data: unknown): ProfesionalSisa | null {
   if (typeof data !== "object" || data === null) {
-    return false;
+    return null;
   }
   const respuesta = data as { encontrado?: unknown; profesional?: unknown };
   if (respuesta.encontrado !== true) {
-    return false;
+    return null;
   }
   const profesional = respuesta.profesional;
   if (typeof profesional !== "object" || profesional === null) {
-    return false;
+    return null;
   }
-  return (profesional as { habilitadoParaEjercer?: unknown }).habilitadoParaEjercer === true;
+  const ficha = profesional as { apellido?: unknown; habilitadoParaEjercer?: unknown; nombre?: unknown };
+  if (ficha.habilitadoParaEjercer !== true) {
+    return null;
+  }
+  return {
+    apellido: textoOpcional(ficha.apellido),
+    nombre: textoOpcional(ficha.nombre),
+  };
 }
 
 /**
@@ -97,5 +121,6 @@ export async function verificarProfesionalSisa(raw: { dni: unknown }): Promise<R
     return { mensaje: MENSAJE_REINTENTO, ok: false };
   }
 
-  return esProfesionalHabilitado(data) ? { ok: true } : { mensaje: MENSAJE_SISA, ok: false };
+  const profesional = extraerProfesionalHabilitado(data);
+  return profesional ? { ok: true, profesional } : { mensaje: MENSAJE_SISA, ok: false };
 }

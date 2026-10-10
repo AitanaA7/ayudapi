@@ -35,6 +35,8 @@ export const MENSAJE_SISA =
   "Médico no registrado o no habilitado en el padrón. Verificá el DNI ingresado o contactá al colegio profesional correspondiente.";
 export const MENSAJE_DNI_DUPLICADO =
   "Ese DNI ya está registrado en otra cuenta. Cada DNI puede tener una sola cuenta: verificá el número ingresado o iniciá sesión.";
+export const MENSAJE_DNI_MEDICO_DUPLICADO =
+  "Ya existe una cuenta de médico registrada con este DNI.";
 export const MENSAJE_INSTITUCION_NOMBRE =
   "El nombre de la institución es obligatorio (mínimo 3 caracteres, máximo 120).";
 export const MENSAJE_INSTITUCION_CUIT =

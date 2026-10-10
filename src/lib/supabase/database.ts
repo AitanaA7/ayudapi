@@ -94,6 +94,7 @@ export interface PacienteInstitucionRow {
 }
 
 export interface PerfilMedicoRow {
+  apellido: string | null;
   dni?: string | null;
   especialidad: string | null;
   estado_verificacion?: string | null;
@@ -104,6 +105,7 @@ export interface PerfilMedicoRow {
   /** Legado opcional: ya no se solicita en el alta (nullable desde la migración DNI-only). */
   jurisdiccion?: string | null;
   matricula: string | null;
+  nombre: string | null;
   telefono_contacto: string | null;
   usuario_id: string;
   creado_en: string;

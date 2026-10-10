@@ -2,7 +2,7 @@ import type { RolUsuario } from "@/lib/supabase/database";
 
 import { parseJsonBody } from "@/lib/api/http";
 import { ipDeRequest, registrarActividadSesion } from "@/lib/auth/actividad-servidor";
-import { isDevBypassActiveFor, verificacionPara } from "@/lib/auth/dev-bypass";
+import { isDevBypassActiveFor, VERIFICACION_PENDIENTE, VERIFICACION_VERIFICADO, verificacionPara } from "@/lib/auth/dev-bypass";
 import {
   CODIGO_INSTITUCION_INVALIDO,
   verificarCodigoInvitacionInstitucion,
@@ -30,6 +30,7 @@ import {
   medicoAltaSchema,
   MENSAJE_CUIT_DUPLICADO,
   MENSAJE_DNI_DUPLICADO,
+  MENSAJE_DNI_MEDICO_DUPLICADO,
   MENSAJE_SISA,
   normalizarInstitucionCruda,
 } from "@/lib/validation/schemas";
@@ -271,7 +272,7 @@ export async function POST(req: Request) {
       return jsonError("No se pudo verificar el DNI. Reintentá.", 500, dniGlobal.error.code);
     }
     if (dniGlobal.conflicto) {
-      return jsonError(dniGlobal.conflicto, 409);
+      return jsonError(MENSAJE_DNI_MEDICO_DUPLICADO, 409);
     }
     // Sin bypass, el DNI debe pertenecer a un profesional habilitado en el
     // padrón SISA/REFEPS; si no, alta bloqueada.
@@ -289,18 +290,23 @@ export async function POST(req: Request) {
       return jsonOk({ bypass, rol, verificacion: verificacionPara(usuario.email ?? null), yaExistia: true });
     }
 
-    const verificacion = verificacionPara(usuario.email ?? null);
+    // SISA ok ⇒ verificado (sin banner pendiente); invitación ⇒ pendiente.
+    const verificacion = valores.inviteModo ? VERIFICACION_PENDIENTE : VERIFICACION_VERIFICADO;
+    // Autocompletado SISA: nombre/apellido del padrón al perfil.
+    const profesionalSisa = "profesional" in sisaRes ? sisaRes.profesional : null;
     const { error: persistError } = await guardarPerfilMedico(admin, usuario.id, {
+      apellido: profesionalSisa?.apellido ?? null,
       dni: valores.dni,
       especialidad: valores.especialidad,
       estadoVerificacion: verificacion,
       // Vía de invitación: marca la excepción; vía estricta: la limpia.
       inviteModo: valores.inviteModo ?? null,
+      nombre: profesionalSisa?.nombre ?? null,
       telefonoContacto: valores.telefono_contacto,
     }, Boolean(existente));
     if (persistError) {
       if (esConflictoUnico(persistError.code)) {
-        return jsonError(MENSAJE_DNI_DUPLICADO, 409);
+        return jsonError(MENSAJE_DNI_MEDICO_DUPLICADO, 409);
       }
       return jsonError(persistError.message, 500, persistError.code);
     }

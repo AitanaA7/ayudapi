@@ -4,7 +4,7 @@ import { parseJsonBody } from "@/lib/api/http";
 import { ipDeRequest, registrarActividadSesion } from "@/lib/auth/actividad-servidor";
 import {
   isDevBypassActiveFor,
-  verificacionPara,
+  VERIFICACION_VERIFICADO,
 } from "@/lib/auth/dev-bypass";
 import {
   CODIGO_INSTITUCION_INVALIDO,
@@ -33,6 +33,7 @@ import {
   medicoAltaSchema,
   MENSAJE_CUIT_DUPLICADO,
   MENSAJE_DNI_DUPLICADO,
+  MENSAJE_DNI_MEDICO_DUPLICADO,
   normalizarInstitucionCruda,
 } from "@/lib/validation/schemas";
 
@@ -145,7 +146,7 @@ export async function POST(req: Request) {
       const dni = invitacionParse.data.dni.trim();
       const dniRes = await verificarDniGlobal(admin, { dni, usuarioId: usuario.id });
       if (dniRes.conflicto) {
-        return jsonError(dniRes.conflicto, 409);
+        return jsonError(MENSAJE_DNI_MEDICO_DUPLICADO, 409);
       }
       datosSolicitados.dni = dni;
       datosSolicitados.telefono_contacto = invitacionParse.data.telefono_contacto.trim();
@@ -174,15 +175,20 @@ export async function POST(req: Request) {
           : verificarProfesionalSisa({ dni }),
       ]);
       if (dniRes.conflicto) {
-        return jsonError(dniRes.conflicto, 409);
+        return jsonError(MENSAJE_DNI_MEDICO_DUPLICADO, 409);
       }
       if (!sisaRes.ok) {
         return jsonError(sisaRes.mensaje, 403);
       }
       datosSolicitados.dni = dni;
+      // Autocompletado SISA: nombre/apellido del padrón al perfil.
+      const profesionalSisa = "profesional" in sisaRes ? sisaRes.profesional : null;
+      datosSolicitados.nombre = profesionalSisa?.nombre ?? undefined;
+      datosSolicitados.apellido = profesionalSisa?.apellido ?? undefined;
       datosSolicitados.telefono_contacto = validacion.data.telefono_contacto.trim();
       datosSolicitados.especialidad = validacion.data.especialidad.trim();
-      datosSolicitados.estado_verificacion = verificacionPara(usuario.email ?? null);
+      // SISA ok ⇒ verificado (sin banner pendiente).
+      datosSolicitados.estado_verificacion = VERIFICACION_VERIFICADO;
     }
   }
 

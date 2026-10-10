@@ -248,14 +248,15 @@ begin
   elsif p_rol = 'medico' then
     -- Modelo DNI-only: la identidad del profesional es su DNI (único global).
     -- `matricula`/`jurisdiccion` son legado opcional y ya no se solicitan en
-    -- el alta: se persisten NULL cuando no viajan en `p_datos`. Persiste
-    -- además DNI y estado de verificación SISA cuando viajan en `p_datos`
-    -- (alta por email/contraseña y OAuth).
+    -- el alta: se persisten NULL cuando no viajan en `p_datos`. Se autocompleta
+    -- `nombre`/`apellido` desde el padrón SISA cuando viajan en `p_datos`
+    -- (alta por email/contraseña y OAuth). Persiste además DNI y estado de
+    -- verificación SISA cuando viajan en `p_datos`.
     -- `invite_modo` ('codigo') marca la excepción por invitación
     -- (`MEDICO_INVITE_CODE`): habilita la operación clínica pendiente de
     -- regularización y etiqueta su auditoría. Solo viaja en altas por
     -- invitación; el alta estricta lo deja NULL.
-    insert into public.perfiles_medico (usuario_id, matricula, especialidad, telefono_contacto, dni, jurisdiccion, estado_verificacion, invite_modo)
+    insert into public.perfiles_medico (usuario_id, matricula, especialidad, telefono_contacto, dni, jurisdiccion, estado_verificacion, invite_modo, nombre, apellido)
     values (
       p_usuario_id,
       nullif(upper(p_datos->>'matricula'), ''),
@@ -264,7 +265,9 @@ begin
       nullif(p_datos->>'dni', ''),
       nullif(upper(p_datos->>'jurisdiccion'), ''),
       coalesce(nullif(p_datos->>'estado_verificacion', ''), 'pendiente'),
-      nullif(p_datos->>'invite_modo', '')
+      nullif(p_datos->>'invite_modo', ''),
+      nullif(p_datos->>'nombre', ''),
+      nullif(p_datos->>'apellido', '')
     )
     on conflict (usuario_id) do nothing;
 
@@ -774,3 +777,8 @@ grant execute on function public.patologias_array(jsonb) to service_role;
 -- =============================================================================
 alter table public.perfiles_medico
   alter column matricula drop not null;
+
+-- Autocompletado SISA: nombre/apellido del padrón oficial al perfil médico.
+alter table public.perfiles_medico
+  add column if not exists nombre text,
+  add column if not exists apellido text;

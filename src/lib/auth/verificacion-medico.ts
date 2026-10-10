@@ -14,6 +14,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  */
 
 export interface ValoresMedico {
+  /** Apellido del padrón SISA (autocompletado, columna nueva, nullable). */
+  apellido?: string | null;
   dni?: string | null;
   especialidad: string;
   estadoVerificacion?: string | null;
@@ -26,6 +28,8 @@ export interface ValoresMedico {
   jurisdiccion?: string | null;
   /** Legado opcional: ya no se solicita en el alta. */
   matricula?: string | null;
+  /** Nombre del padrón SISA (autocompletado, columna nueva, nullable). */
+  nombre?: string | null;
   telefonoContacto: string;
 }
 
@@ -158,6 +162,12 @@ export async function guardarPerfilMedico(
   }
   if (valores.dni !== undefined) {
     extendida.dni = valores.dni;
+  }
+  if (valores.apellido !== undefined) {
+    extendida.apellido = valores.apellido;
+  }
+  if (valores.nombre !== undefined) {
+    extendida.nombre = valores.nombre;
   }
   if (valores.estadoVerificacion !== undefined && valores.estadoVerificacion !== null) {
     extendida.estado_verificacion = valores.estadoVerificacion;
