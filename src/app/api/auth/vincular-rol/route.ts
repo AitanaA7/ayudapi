@@ -316,11 +316,7 @@ export async function POST(req: Request) {
         : Promise.resolve<{ conflicto: string | null; error?: { code?: string; message: string } }>({ conflicto: null }),
       bypass || valores.inviteModo === "codigo"
         ? Promise.resolve({ ok: true as const })
-        : verificarProfesionalSisa(admin, {
-            dni: valores.dni,
-            jurisdiccion: valores.jurisdiccion,
-            matricula: valores.matricula,
-          }),
+        : verificarProfesionalSisa({ dni: valores.dni }),
       admin
         .from("perfiles_medico")
         .select("id, matricula")

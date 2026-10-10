@@ -1,3 +1,31 @@
+0. ACTUALIZACIÓN 2026-10-10 — CONTEXTO GLOBAL VERIFICADO
+Verificado hoy ejecutando npm run typecheck (0 errores) y npm run lint (0 errores, 0 warnings), más lectura de estructura, git log, .env.local y conteo de archivos. El informe de las líneas 1-505 sigue vigente como detalle; esta sección es el resumen ejecutivo actual.
+0.1 Qué hace la app (global)
+AyudAPI es una web Next.js 15 + Supabase (Postgres + PostGIS) de respuesta médica georreferenciada para el "minuto de oro": cada paciente tiene un QR personal con slug seguro; quien lo escanea ve datos críticos mínimos sin login (/e/[slug], Nivel 1); un médico autenticado accede al historial completo con triple check (Nivel 3); las instituciones ven agregados anonimizados por celda de 0,5° (Nivel 4). Todo acceso clínico queda auditado (logs_auditoria). Flujos principales: registro/login (Google OAuth con UI + email/contraseña solo API) → wizard crear-perfil → mi-perfil / qr-exito (QR PNG 2048px/SVG, revocable) → emergencia pública con alerta SAME 107/911 + GPS reactivo + aviso a contactos ICE → escaneo médico → estudios clínicos (bucket privado, signed URLs 300 s) → panel institucional (5 pestañas) → métricas Prometheus/Grafana.
+0.2 Hasta qué punto está realizada (estimación por módulo)
+- Autenticación/RBAC dual + SISA/REFEPS + invitaciones: ~95 % operativo (falta UI de email/contraseña; ver riesgos C1/C4/C5 abajo).
+- Perfil paciente + cifrado AES-256-GCM + QR (generar/revocar/descargar): ~95 % operativo.
+- Emergencia pública /e/[slug] + alerta + GPS reactivo: ~90 % (el envío real a contactos ICE no existe: se inserta como 'enviado', RF-EME-03 parcial).
+- Acceso médico + triple check + auditoría de accesos: ~90 % operativo.
+- Estudios clínicos: ~90 % operativo.
+- Panel institucional: ~70 % (funciona end-to-end contra la base real; 2 de 6 métricas en 0 permanente porque atenciones y registros_medicos nunca se escriben; heatmap es rejilla CSS, no mapa; sin cross-tenant fix).
+- Auditoría: ~60 % (faltan eventos: QR, consentimientos, estudios; RF-AUD-02 incumplido: rol institucion lee logs con PII).
+- Monitorización: ~50 % (7 gauges de negocio; sin latencia/errores/CPU; dashboards Grafana sin provisionar).
+- Tests automatizados: 0 % (cero archivos *.test.* / *.spec.* en el repo).
+Global aproximado: ~80 % del alcance ERS funcional en marcha; 16 RF cumplidos, 8 parciales, 1 incumplido (RF-AUD-02). Calidad mecánica en su mejor momento (typecheck + lint limpios).
+0.3 Novedades desde el informe base (git log reciente)
+1. Panel institucional conectado a Supabase real y probado end-to-end (commit 7f5b6a3).
+2. Stack de monitoreo documentado para levantar local: monitoring/ (docker-compose + prometheus + README).
+3. UI: responsive, select accesible, scroll-to-top en cambio de paso del wizard, códigos de invitado en inicio de sesión, transcripción sesión Dev1.
+0.4 Correcciones a cifras del informe base (desactualizadas)
+- src/ pasó de 134 a 157 archivos (77 .tsx + 55 .ts; +20 assets en src/imports/ de Figma).
+- Route Handlers: 27 archivos route.ts (el informe dice 28); páginas: 15 page.tsx (el informe dice 16).
+- lib/auth tiene 14 módulos (actividad-servidor.ts y persistencia-sesion.ts no estaban descritos); src/types/styles.d.ts y src/styles/ son nuevos.
+- D10 parcialmente resuelto: .env.local YA contiene SUPABASE_SERVICE_ROLE_KEY, CRYPTO_ENCRYPTION_KEY, NEXT_PUBLIC_SITE_URL, BREVO_*, NOTIFICACIONES_EMAIL_WEBHOOK_URL, MEDICO/INSTITUCION_INVITE_CODE y DEV_ADMIN_EMAILS. Siguen sin aparecer METRICS_TOKEN ni SISA_PADRON_JSON (el fail-open de /api/metrics y el fallback SISA siguen vigentes).
+- D8 sigue vigente: cero tests. D4 sigue vigente: reporte-lint.json obsoleto.
+0.5 Riesgos que siguen abiertos (no re-auditoría, solo recordatorio)
+C1 escalación vía RPC crear_perfil_inicial, C2 fuga cross-tenant institucional, C3 filtro de auditoría cuando falta perfil, C4 aprovisionamiento desde user_metadata.app_rol, C5 fail-opens (webhook email, metrics sin token), C6 sin rate limiting, F1 tablas atenciones/registros_medicos nunca escritas. Ver §8 y §11 del informe base para fixes propuestos.
+---
 Informe de Análisis — Proyecto AyudAPI
 Alcance: lectura completa de src/ (134 archivos), supabase/schema.sql, monitoring/, configuración raíz y los artefactos de la ERS. Verificado ejecutando npm run typecheck y npm run lint.
 1. Qué es AyudAPI

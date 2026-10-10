@@ -194,7 +194,7 @@ export async function POST(req: Request) {
         verificarUnicidadMedico(admin, { dni, jurisdiccion, matricula, usuarioId: usuario.id }),
         bypass
           ? Promise.resolve({ ok: true as const })
-          : verificarProfesionalSisa(admin, { dni, jurisdiccion, matricula }),
+          : verificarProfesionalSisa({ dni }),
       ]);
       if (dniRes.conflicto) {
         return jsonError(dniRes.conflicto, 409);

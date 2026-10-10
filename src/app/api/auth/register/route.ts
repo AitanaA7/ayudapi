@@ -213,11 +213,7 @@ export async function POST(req: Request) {
         }),
         esBypass
           ? Promise.resolve({ ok: true as const })
-          : verificarProfesionalSisa(admin, {
-              dni: dniNormalizado,
-              jurisdiccion: jurisdiccionNormalizada,
-              matricula: matriculaNormalizada,
-            }),
+          : verificarProfesionalSisa({ dni: dniNormalizado }),
       ]);
       if (dniRes.conflicto) {
         return jsonError(MENSAJE_DNI_DUPLICADO, 409);

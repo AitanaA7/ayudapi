@@ -250,7 +250,7 @@ export async function PUT(req: Request) {
       : Promise.resolve<{ conflicto: string | null; error?: { code?: string; message: string } }>({ conflicto: null }),
     bypass || inviteModo
       ? Promise.resolve({ ok: true as const })
-      : verificarProfesionalSisa(admin, { dni, jurisdiccion, matricula }),
+      : verificarProfesionalSisa({ dni }),
     admin
       .from("perfiles_medico")
       .select("id")

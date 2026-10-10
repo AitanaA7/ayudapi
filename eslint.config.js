@@ -34,7 +34,7 @@ export default defineConfig([
     rules: { "@next/next/no-img-element": "off" },
   },
   {
-    files: ["middleware.ts", "src/app/api/**/*.ts", "src/lib/**/*.ts"],
+    files: ["middleware.ts", "src/app/api/**/*.ts", "src/lib/**/*.ts", "scraper/**/*.js"],
     languageOptions: { globals: globals.node },
   },
 ]);
