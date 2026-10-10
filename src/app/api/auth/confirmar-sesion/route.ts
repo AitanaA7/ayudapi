@@ -20,6 +20,7 @@ import {
 import { confirmarYProvisionar } from "@/lib/auth/registro";
 import { getBearerToken, getSessionUser, jsonError, jsonOk } from "@/lib/auth/session";
 import { verificarProfesionalSisa } from "@/lib/auth/sisa";
+import { exigirDniVinculado, registrarDniValidado } from "@/lib/auth/sisa-vinculo";
 import {
   verificarDniGlobal,
 } from "@/lib/auth/verificacion-medico";
@@ -180,6 +181,12 @@ export async function POST(req: Request) {
       if (!sisaRes.ok) {
         return jsonError(sisaRes.mensaje, 403);
       }
+      // Vínculo inviolable DNI ↔ cuenta (la primera validación lo establece).
+      const vinculo = await exigirDniVinculado(admin, usuario.id, dni);
+      if (!vinculo.ok) {
+        return jsonError(vinculo.mensaje, 403);
+      }
+      await registrarDniValidado(admin, usuario.id, dni, bypass ? "bypass" : "sisa");
       datosSolicitados.dni = dni;
       // Autocompletado SISA: nombre/apellido del padrón al perfil.
       const profesionalSisa = "profesional" in sisaRes ? sisaRes.profesional : null;

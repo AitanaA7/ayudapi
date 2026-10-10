@@ -22,6 +22,7 @@ import {
 import { confirmarYProvisionar } from "@/lib/auth/registro";
 import { jsonError, jsonOk } from "@/lib/auth/session";
 import { verificarProfesionalSisa, type ProfesionalSisa } from "@/lib/auth/sisa";
+import { registrarDniValidado } from "@/lib/auth/sisa-vinculo";
 import {
   verificarDniGlobal,
 } from "@/lib/auth/verificacion-medico";
@@ -343,6 +344,18 @@ export async function POST(req: Request) {
     return jsonError("No se pudo crear la cuenta. Reintentá.", 400);
   }
   const userId = authData.user.id;
+
+  // Vínculo inviolable: la cuenta nace con SISA-ok en esta misma petición
+  // (o bypass dev), así que el DNI se ancla directamente. La vía de
+  // invitación no establece vínculo (DNI no contrastado).
+  if (rol === "medico" && dniNormalizado && !inviteMedicoModo) {
+    await registrarDniValidado(
+      admin,
+      userId,
+      dniNormalizado,
+      isDevBypassActiveFor(email) ? "bypass" : "sisa",
+    );
+  }
 
   // 2. Alta definitiva del perfil (roles_usuario / perfiles_*).
   try {

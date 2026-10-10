@@ -782,3 +782,23 @@ alter table public.perfiles_medico
 alter table public.perfiles_medico
   add column if not exists nombre text,
   add column if not exists apellido text;
+
+-- =============================================================================
+-- Vínculo inviolable DNI validado ↔ cuenta (anti-alteración de peticiones)
+-- Idempotente: seguro re-ejecutar. Al validar un DNI por SISA, el backend
+-- ancla `dni` a `usuario_id`; toda creación/actualización posterior del perfil
+-- médico exige coincidencia exacta (403 si se altera). Sin políticas RLS:
+-- deny-all (solo `service_role` la lee/escribe, como `padron_profesionales`).
+-- Sin esta tabla el código se degrada a "sin vínculo" (el contraste SISA en
+-- vivo + unicidad 409 siguen rigiendo).
+-- =============================================================================
+create table if not exists public.sisa_dni_validados (
+  usuario_id  uuid primary key references auth.users(id) on delete cascade,
+  dni         text not null check (dni ~ '^\d{7,8}$'),
+  fuente      text not null default 'sisa',
+  validado_en timestamptz not null default now()
+);
+
+alter table public.sisa_dni_validados enable row level security;
+
+drop policy if exists "sisa_vinculo_sin_acceso_anon" on public.sisa_dni_validados;

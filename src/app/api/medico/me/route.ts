@@ -17,6 +17,7 @@ import {
   jsonOk,
 } from "@/lib/auth/session";
 import { verificarProfesionalSisa } from "@/lib/auth/sisa";
+import { exigirDniVinculado, registrarDniValidado } from "@/lib/auth/sisa-vinculo";
 import {
   guardarPerfilMedico,
   verificarDniGlobal,
@@ -217,6 +218,15 @@ export async function PUT(req: Request) {
   }
   if (!sisaRes.ok) {
     return jsonError(sisaRes.mensaje || MENSAJE_SISA, 403);
+  }
+  // Vínculo inviolable DNI ↔ cuenta: rechaza persistir un DNI distinto al
+  // validado por SISA para esta cuenta.
+  const vinculo = await exigirDniVinculado(admin, usuario.id, dni);
+  if (!vinculo.ok) {
+    return jsonError(vinculo.mensaje, 403);
+  }
+  if (dni) {
+    await registrarDniValidado(admin, usuario.id, dni, bypass ? "bypass" : "sisa");
   }
 
   const { data: fila, error: filaError } = filaRes;

@@ -14,6 +14,7 @@ import {
 } from "@/lib/auth/invitacion";
 import { getBearerToken, getRolesForUser, getSessionUser, jsonError, jsonOk } from "@/lib/auth/session";
 import { verificarProfesionalSisa } from "@/lib/auth/sisa";
+import { exigirDniVinculado, registrarDniValidado } from "@/lib/auth/sisa-vinculo";
 import {
   guardarPerfilMedico,
   verificarDniGlobal,
@@ -278,6 +279,18 @@ export async function POST(req: Request) {
     // padrón SISA/REFEPS; si no, alta bloqueada.
     if (!sisaRes.ok) {
       return jsonError(sisaRes.mensaje || MENSAJE_SISA, 403);
+    }
+    // Vínculo inviolable: el DNI a persistir debe ser el validado por SISA
+    // para esta cuenta (la primera validación lo establece). La vía de
+    // invitación no vincula (DNI no contrastado).
+    if (valores.inviteModo !== "codigo") {
+      const vinculo = await exigirDniVinculado(admin, usuario.id, valores.dni);
+      if (!vinculo.ok) {
+        return jsonError(vinculo.mensaje, 403);
+      }
+      if (valores.dni) {
+        await registrarDniValidado(admin, usuario.id, valores.dni, bypass ? "bypass" : "sisa");
+      }
     }
 
     const { data: existente, error: existenteError } = existenteRes;
