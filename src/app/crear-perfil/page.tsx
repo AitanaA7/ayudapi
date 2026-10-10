@@ -24,6 +24,7 @@ import type {
   CondicionMedica,
   ContactoEmergencia,
   Medicamento,
+  PerfilMedicoRow,
   PerfilPacienteInput,
 } from "@/lib/supabase/database";
 
@@ -78,6 +79,9 @@ export default function CreateProfilePage() {
 
   const [alias, setAlias] = useState("");
   const [dni, setDni] = useState("");
+  /** Identidad validada por SISA: se prellena y bloquea (no editable). */
+  const [dniBloqueado, setDniBloqueado] = useState(false);
+  const [nombreBloqueado, setNombreBloqueado] = useState(false);
   const [birthDate, setBirthDate] = useState("");
   const [bloodGroup, setBloodGroup] = useState("");
   const [contactos, setContactos] = useState<Contact[]>([
@@ -228,6 +232,40 @@ export default function CreateProfilePage() {
       activo = false;
     };
   }, [reintentarKey, session]);
+
+  // Médicos validados por SISA: el DNI y el nombre del padrón oficial se
+  // prellenan y bloquean para que no puedan alterarse en el asistente. El
+  // backend lo refuerza (`sisa_dni_validados`): un DNI distinto responde 403.
+  // Sin perfil médico (paciente común) todo sigue editable.
+  useEffect(() => {
+    if (!session) {
+      return;
+    }
+    let activo = true;
+    apiFetch<{ perfil: PerfilMedicoRow }>("/api/medico/me", session)
+      .then(({ perfil }) => {
+        if (!activo || !perfil) {
+          return;
+        }
+        if (perfil.dni) {
+          setDni(perfil.dni);
+          setDniBloqueado(true);
+        }
+        const nombreSisa = [perfil.nombre, perfil.apellido]
+          .filter((parte): parte is string => typeof parte === "string" && parte.trim().length > 0)
+          .join(" ");
+        if (nombreSisa) {
+          setFullName(nombreSisa);
+          setNombreBloqueado(true);
+        }
+      })
+      .catch(() => {
+        // Sin rol médico (404) u otro error: el asistente sigue editable.
+      });
+    return () => {
+      activo = false;
+    };
+  }, [session]);
 
   function addCondition() {
     if (!condDesc.trim()) return;
@@ -420,12 +458,18 @@ export default function CreateProfilePage() {
                     <label className="text-sm font-semibold text-gray-700">Nombre completo</label>
                     <span className="text-xs text-blue-600">Cifrado · solo médicos autorizados</span>
                   </div>
-                  <input className={INPUT_CLASS} onChange={(e) => setFullName(e.target.value)} placeholder="Tu nombre legal completo" type="text" value={fullName} />
+                  <input className={nombreBloqueado ? cn(INPUT_CLASS, "bg-gray-100 text-gray-500") : INPUT_CLASS} disabled={nombreBloqueado} onChange={(e) => setFullName(e.target.value)} placeholder="Tu nombre legal completo" type="text" value={fullName} />
+                  {nombreBloqueado && (
+                    <p className="text-xs text-emerald-600 mt-1">Validado por SISA · no editable.</p>
+                  )}
                 </div>
                 <div>
                   <label className="text-sm font-semibold text-gray-700 block mb-1">DNI <span className="text-blue-600">*</span></label>
                   <p className="text-xs text-gray-400 mb-1.5">7 u 8 dígitos, sin puntos ni letras. Una sola cuenta por DNI.</p>
-                  <input className={INPUT_CLASS} inputMode="numeric" maxLength={8} onChange={(e) => setDni(e.target.value.replace(/\D/g, "").slice(0, 8))} placeholder="Ej: 30123456" type="text" value={dni} />
+                  <input className={dniBloqueado ? cn(INPUT_CLASS, "bg-gray-100 text-gray-500") : INPUT_CLASS} disabled={dniBloqueado} inputMode="numeric" maxLength={8} onChange={(e) => setDni(e.target.value.replace(/\D/g, "").slice(0, 8))} placeholder="Ej: 30123456" type="text" value={dni} />
+                  {dniBloqueado && (
+                    <p className="text-xs text-emerald-600 mt-1">Validado por SISA · no editable.</p>
+                  )}
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>

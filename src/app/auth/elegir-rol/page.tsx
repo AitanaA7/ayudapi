@@ -261,6 +261,12 @@ function ElegirRolContenido() {
           method: "POST",
         },
       );
+      // Post-validación SISA: el médico siempre continúa al asistente de
+      // configuración de perfil (`/crear-perfil`), nunca directo al panel.
+      if (rol === "medico") {
+        router.replace("/crear-perfil");
+        return;
+      }
       await enrutar(session.access_token, res.rol);
     } catch (err) {
       setError(

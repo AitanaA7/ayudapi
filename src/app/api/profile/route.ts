@@ -13,6 +13,7 @@ import {
   jsonError,
   jsonOk,
 } from "@/lib/auth/session";
+import { exigirDniVinculado } from "@/lib/auth/sisa-vinculo";
 import { verificarDniGlobal } from "@/lib/auth/verificacion-medico";
 import { decryptSensitiveValue, encryptSensitiveValue } from "@/lib/security/cipher";
 import { createAdminServerClient } from "@/lib/supabase/server";
@@ -212,6 +213,14 @@ export async function PUT(req: Request) {
   }
   if (dniRes.conflicto) {
     return jsonError(dniRes.conflicto ?? MENSAJE_DNI_DUPLICADO, 409);
+  }
+  // Blindaje anti-alteración: si la cuenta tiene DNI validado por SISA
+  // (rol médico con campo bloqueado en el asistente), el DNI enviado debe
+  // coincidir exactamente; otro valor responde 403. Sin vínculo (paciente
+  // común o invitación) no restringe.
+  const vinculo = await exigirDniVinculado(admin, user.id, dni);
+  if (!vinculo.ok) {
+    return jsonError(vinculo.mensaje, 403);
   }
   const { data: fila, error: filaError } = await admin
     .from("perfiles_paciente")
