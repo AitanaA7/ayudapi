@@ -7,3 +7,5 @@ npm-debug.log*
 fly.toml
 Dockerfile
 .dockerignore
+# Tests herméticos con `node:test`: no se necesitan en runtime.
+test/
