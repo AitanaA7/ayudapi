@@ -74,7 +74,6 @@ create table if not exists public.perfiles_paciente (
 create table if not exists public.perfiles_medico (
   id                uuid primary key default gen_random_uuid(),
   usuario_id        uuid not null unique references auth.users(id) on delete cascade,
-  matricula         text not null unique,
   especialidad      text,
   institucion_id    uuid references public.perfiles_institucion(id) on delete set null,
   telefono_contacto text,
@@ -246,29 +245,16 @@ begin
       grupo_sanguineo = coalesce(excluded.grupo_sanguineo, public.perfiles_paciente.grupo_sanguineo);
 
   elsif p_rol = 'medico' then
-    -- `matricula` es UNIQUE: nunca se persiste un provisorio compartido
-    -- ("S/M"). Sin matrícula real se genera una provisoria única por usuario
-    -- que luego se reemplaza en la vinculación o el completado de perfil.
-    -- Persiste además DNI, jurisdicción y estado de verificación SISA cuando
-    -- viajan en `p_datos` (alta por email/contraseña y OAuth).
+    -- La identidad profesional es el DNI (UNIQUE global, una cuenta por DNI).
+    -- Persiste DNI, jurisdicción y estado de verificación SISA cuando viajan
+    -- en `p_datos` (alta por email/contraseña y OAuth).
     -- `invite_modo` ('codigo') marca la excepción por invitación
     -- (`MEDICO_INVITE_CODE`): habilita la operación clínica pendiente de
     -- regularización y etiqueta su auditoría. Solo viaja en altas por
     -- invitación; el alta estricta lo deja NULL.
-    insert into public.perfiles_medico (usuario_id, matricula, especialidad, telefono_contacto, dni, jurisdiccion, estado_verificacion, invite_modo)
+    insert into public.perfiles_medico (usuario_id, especialidad, telefono_contacto, dni, jurisdiccion, estado_verificacion, invite_modo)
     values (
       p_usuario_id,
-      coalesce(
-        nullif(
-          case lower(coalesce(p_datos->>'matricula', ''))
-            when '' then null
-            when 's/m' then null
-            else upper(p_datos->>'matricula')
-          end,
-          ''
-        ),
-        'PENDIENTE-' || upper(left(replace(p_usuario_id::text, '-', ''), 8))
-      ),
       p_datos->>'especialidad',
       p_datos->>'telefono_contacto',
       nullif(p_datos->>'dni', ''),
@@ -460,8 +446,8 @@ create policy "auditoria_propia" on public.logs_auditoria for select
 
 -- =============================================================================
 -- Migración: validación estricta de médicos (jurisdicción + DNI + verificación)
--- Idempotente: seguro re-ejecutar. El código hace fallback a solo `matricula`
--- si estas columnas aún no se aplicaron en el entorno.
+-- Idempotente: seguro re-ejecutar. La identidad profesional es el DNI; la
+-- matrícula fue eliminada por completo del modelo.
 -- =============================================================================
 alter table public.perfiles_medico
   add column if not exists jurisdiccion text,
@@ -471,11 +457,9 @@ alter table public.perfiles_medico
 -- =============================================================================
 -- Migración: excepción por invitación médica (`MEDICO_INVITE_CODE`)
 -- Idempotente: seguro re-ejecutar. `invite_modo` ('codigo') distingue a los
--- médicos que operan con matrícula provisoria bajo excepción de invitación
--- de los perfiles provisorios legacy (que deben regularizar en
--- `/medico/completar-perfil`). El backfill marca las altas por invitación
--- previas a esta columna cruzando la auditoría (`invite_modo` en detalles)
--- restringido a filas aún provisorias (evita falsos positivos en dual-rol).
+-- médicos que operan bajo excepción de invitación de los perfiles estrictos.
+-- El backfill marca las altas por invitación previas a esta columna cruzando
+-- la auditoría (`invite_modo` en detalles).
 -- =============================================================================
 alter table public.perfiles_medico
   add column if not exists invite_modo text;
@@ -483,12 +467,6 @@ alter table public.perfiles_medico
 update public.perfiles_medico pm
 set invite_modo = 'codigo'
 where pm.invite_modo is null
-  and (
-    pm.matricula is null
-    or pm.matricula = ''
-    or lower(pm.matricula) = 's/m'
-    or pm.matricula like 'PENDIENTE-%'
-  )
   and exists (
     select 1 from public.logs_auditoria la
     where la.usuario_id = pm.usuario_id
@@ -509,8 +487,10 @@ end $$;
 create unique index if not exists perfiles_medico_dni_key
   on public.perfiles_medico (dni) where dni is not null;
 
-create unique index if not exists perfiles_medico_matricula_jurisdiccion_key
-  on public.perfiles_medico (matricula, jurisdiccion);
+-- Eliminación total de la matrícula (destructivo): primero el índice/constraint
+-- compuesto dependiente, luego la columna. Idempotente.
+drop index if exists public.perfiles_medico_matricula_jurisdiccion_key;
+alter table public.perfiles_medico drop column if exists matricula;
 
 -- =============================================================================
 -- Endurecimiento SISA/REFEPS: DNI obligatorio y único + padrón de profesionales
@@ -547,15 +527,21 @@ end $$;
 create table if not exists public.padron_profesionales (
   id           uuid primary key default gen_random_uuid(),
   dni          text not null check (dni ~ '^\d{7,8}$'),
-  matricula    text not null,
-  jurisdiccion text not null,
+  jurisdiccion text,
   apellido     text,
   nombre       text,
   especialidad text,
   activo       boolean not null default true,
   creado_en    timestamptz not null default now(),
-  unique (dni, matricula, jurisdiccion)
+  unique (dni)
 );
+
+-- Migración de padrón existente a identidad única por DNI (destructivo):
+-- elimina la matrícula y su constraint compuesto, y garantiza unicidad de DNI.
+-- Idempotente.
+alter table public.padron_profesionales drop column if exists matricula;
+create unique index if not exists padron_profesionales_dni_key
+  on public.padron_profesionales (dni);
 
 alter table public.padron_profesionales enable row level security;
 

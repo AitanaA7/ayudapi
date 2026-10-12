@@ -5,7 +5,7 @@ import { ipDeRequest, registrarActividadSesion } from "@/lib/auth/actividad-serv
 import {
   CODIGO_BYPASS_REQUERIDO,
   isDevBypassActiveFor,
-  motivoBloqueoMatriculaDePrueba,
+  motivoBloqueoDniDePrueba,
   verificacionPara,
 } from "@/lib/auth/dev-bypass";
 import {
@@ -22,13 +22,9 @@ import {
 import { confirmarYProvisionar } from "@/lib/auth/registro";
 import { getBearerToken, getSessionUser, jsonError, jsonOk } from "@/lib/auth/session";
 import { verificarProfesionalSisa } from "@/lib/auth/sisa";
-import {
-  verificarDniGlobal,
-  verificarUnicidadMedico,
-} from "@/lib/auth/verificacion-medico";
+import { verificarDniGlobal } from "@/lib/auth/verificacion-medico";
 import { createAdminServerClient } from "@/lib/supabase/server";
-import { normalizarJurisdiccionSisa, normalizarMatricula } from "@/lib/validation/profile";
-import { esEmailValido, esMatriculaProvisoria } from "@/lib/validation/profile";
+import { esEmailValido, normalizarJurisdiccionSisa } from "@/lib/validation/profile";
 import {
   detalle400DesdeZod,
   dniSchema,
@@ -48,7 +44,7 @@ interface ConfirmarSesionRequest {
   email?: string;
   /** Rol elegido al crear la cuenta con Google (paciente / medico / institucion). */
   rol?: RolUsuario;
-  /** Datos del perfil elegidos en el formulario (matrícula, especialidad…). */
+  /** Datos del perfil elegidos en el formulario (DNI, especialidad…). */
   datos?: Record<string, unknown>;
 }
 
@@ -57,17 +53,16 @@ interface ConfirmarSesionRequest {
  * alta el perfil definitivo en la base de datos si todavía no existía. Devuelve
  * el rol principal para que el cliente enrute la UI correctamente.
  *
- * Rigor SISA/REFEPS: el alta como médico exige DNI + jurisdicción + matrícula
- * + teléfono + especialidad (400 por campo), unicidad global del DNI y de la
- * matrícula (409) y coincidencia con el padrón SISA (403 "Médico no
- * registrado…"). Las `TEST-...` solo pasan con `DEV_ADMIN_EMAILS` (403).
+ * Rigor SISA/REFEPS: el alta como médico exige DNI + jurisdicción + teléfono +
+ * especialidad (400 por campo), unicidad global del DNI (409) y coincidencia
+ * con el padrón SISA (403 "Médico no registrado…"). Los DNIs `TEST_DNIS` solo
+ * pasan con `DEV_ADMIN_EMAILS` (403).
  * El alta como paciente exige DNI único (400/409).
  * El alta como institución exige el esquema Zod compartido (400 por campo),
  * código de invitación `INSTITUCION_INVITE_CODE` (403) y CUIT único (409):
  * sin invitación válida no hay auto-provisión institucional por este canal.
  * El alta como médico admite la vía de invitación (`MEDICO_INVITE_CODE`):
- * matrícula ausente o en trámite + código válido → provisoria `PENDIENTE-...`
- * y `pendiente` sin contraste SISA (403 fail-closed sin código válido).
+ * código válido → `pendiente` sin contraste SISA (403 fail-closed sin código).
  */
 export async function POST(req: Request) {
   const token = getBearerToken(req.headers.get("authorization"));
@@ -111,32 +106,30 @@ export async function POST(req: Request) {
   /** Modo de la vía de invitación médica, si se usó. */
   let inviteMedicoModo: ModoInvitacion | null = null;
 
-  // Bypass: los datos controlados por el cliente no pueden traer una
-  // matrícula de prueba sin email autorizado (se persistiría como real).
+  // Bypass: los datos controlados por el cliente no pueden traer un DNI de
+  // prueba sin email autorizado (se persistiría como real).
   if (rolSolicitado === "medico" && datosSolicitados) {
-    const bloqueo = motivoBloqueoMatriculaDePrueba(
+    const bloqueo = motivoBloqueoDniDePrueba(
       usuario.email ?? null,
-      (datosSolicitados as Record<string, unknown>).matricula,
+      datosSolicitados.dni,
     );
     if (bloqueo) {
       return jsonError(bloqueo, 403);
     }
     const bypass = isDevBypassActiveFor(usuario.email ?? null);
-    const matriculaCruda =
-      typeof datosSolicitados.matricula === "string"
-        ? datosSolicitados.matricula.trim()
+    const codigoInvitacion =
+      typeof datosSolicitados.codigo_invitacion === "string"
+        ? datosSolicitados.codigo_invitacion.trim()
         : "";
-    // Vía de invitación: matrícula ausente o en trámite + mecanismo habilitado.
-    // Suple al padrón SISA y deja el perfil `pendiente` con provisoria
-    // `PENDIENTE-...` (generada por `confirmarYProvisionar`). Sin secreto
-    // configurado rige la vía estricta clásica (matrícula obligatoria, 400).
-    if (!bypass && esMatriculaProvisoria(matriculaCruda) && invitacionMedicaHabilitada()) {
+    // Vía de invitación: código presente + mecanismo habilitado. Suple al
+    // padrón SISA y deja el perfil `pendiente`. Sin secreto configurado rige
+    // la vía estricta clásica (verificación del DNI).
+    if (!bypass && codigoInvitacion.length > 0 && invitacionMedicaHabilitada()) {
       const invitacionParse = medicoAltaInvitacionSchema.safeParse({
         codigo_invitacion: datosSolicitados.codigo_invitacion,
         dni: datosSolicitados.dni,
         especialidad: datosSolicitados.especialidad,
         jurisdiccion: datosSolicitados.jurisdiccion,
-        matricula: matriculaCruda.length > 0 ? matriculaCruda : undefined,
         telefono_contacto:
           datosSolicitados.telefono_contacto ?? datosSolicitados.telefono,
       });
@@ -163,7 +156,6 @@ export async function POST(req: Request) {
       datosSolicitados.jurisdiccion =
         normalizarJurisdiccionSisa(invitacionParse.data.jurisdiccion) ??
         invitacionParse.data.jurisdiccion.trim().toUpperCase();
-      datosSolicitados.matricula = undefined;
       datosSolicitados.telefono_contacto = invitacionParse.data.telefono_contacto.trim();
       datosSolicitados.especialidad = invitacionParse.data.especialidad.trim();
       datosSolicitados.estado_verificacion = "pendiente";
@@ -176,7 +168,6 @@ export async function POST(req: Request) {
         dni: datosSolicitados.dni,
         especialidad: datosSolicitados.especialidad,
         jurisdiccion: datosSolicitados.jurisdiccion,
-        matricula: datosSolicitados.matricula,
         telefono_contacto:
           datosSolicitados.telefono_contacto ?? datosSolicitados.telefono,
       });
@@ -188,26 +179,20 @@ export async function POST(req: Request) {
       const jurisdiccion =
         normalizarJurisdiccionSisa(validacion.data.jurisdiccion) ??
         validacion.data.jurisdiccion.trim().toUpperCase();
-      const matricula = normalizarMatricula(validacion.data.matricula);
-      const [dniRes, matriculaRes, sisaRes] = await Promise.all([
+      const [dniRes, sisaRes] = await Promise.all([
         verificarDniGlobal(admin, { dni, usuarioId: usuario.id }),
-        verificarUnicidadMedico(admin, { dni, jurisdiccion, matricula, usuarioId: usuario.id }),
         bypass
           ? Promise.resolve({ ok: true as const })
-          : verificarProfesionalSisa(admin, { dni, jurisdiccion, matricula }),
+          : verificarProfesionalSisa(admin, { dni }),
       ]);
       if (dniRes.conflicto) {
         return jsonError(dniRes.conflicto, 409);
-      }
-      if (matriculaRes.conflicto) {
-        return jsonError(matriculaRes.conflicto, 409);
       }
       if (!sisaRes.ok) {
         return jsonError(sisaRes.mensaje, 403);
       }
       datosSolicitados.dni = dni;
       datosSolicitados.jurisdiccion = jurisdiccion;
-      datosSolicitados.matricula = matricula;
       datosSolicitados.telefono_contacto = validacion.data.telefono_contacto.trim();
       datosSolicitados.especialidad = validacion.data.especialidad.trim();
       datosSolicitados.estado_verificacion = verificacionPara(usuario.email ?? null);
@@ -289,7 +274,7 @@ export async function POST(req: Request) {
     altaNueva = !resultado.yaExistia;
   } catch (err) {
     if ((err as { code?: string } | null)?.code === CODIGO_BYPASS_REQUERIDO) {
-      return jsonError(err instanceof Error ? err.message : "Matrícula de prueba no autorizada.", 403);
+      return jsonError(err instanceof Error ? err.message : "DNI de prueba no autorizado.", 403);
     }
     console.error("[confirmar-sesion] No se pudo dar de alta el perfil:", err);
     return jsonError("No se pudo completar el alta del perfil. Reintentá.", 500);

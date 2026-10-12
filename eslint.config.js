@@ -7,7 +7,7 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 
 export default defineConfig([
-  { ignores: ["dist/**", "dist", ".next/**", ".next", "next-env.d.ts"] },
+  { ignores: ["dist/**", "dist", ".next/**", ".next", "next-env.d.ts", "sisa-scraper/**"] },
   { files: ["**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}"], plugins: { js }, extends: ["js/recommended"], languageOptions: { globals: globals.browser } },
   ...nextCoreWebVitals,
   tseslint.configs.recommended,

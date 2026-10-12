@@ -40,9 +40,9 @@ export async function GET(req: Request) {
       rol = resultado.rol;
     } catch (error) {
       if ((error as { code?: string } | null)?.code === CODIGO_BYPASS_REQUERIDO) {
-        console.error("[auth/rol] Matrícula de prueba sin bypass autorizado.");
+        console.error("[auth/rol] DNI de prueba sin bypass autorizado.");
         return jsonError(
-          error instanceof Error ? error.message : "Matrícula de prueba no autorizada.",
+          error instanceof Error ? error.message : "DNI de prueba no autorizado.",
           403,
         );
       }

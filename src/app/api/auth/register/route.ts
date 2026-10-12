@@ -7,7 +7,7 @@ import { ipDeRequest, registrarActividadSesion } from "@/lib/auth/actividad-serv
 import {
   CODIGO_BYPASS_REQUERIDO,
   isDevBypassActiveFor,
-  motivoBloqueoMatriculaDePrueba,
+  motivoBloqueoDniDePrueba,
   verificacionPara,
 } from "@/lib/auth/dev-bypass";
 import {
@@ -24,12 +24,9 @@ import {
 import { confirmarYProvisionar } from "@/lib/auth/registro";
 import { jsonError, jsonOk } from "@/lib/auth/session";
 import { verificarProfesionalSisa } from "@/lib/auth/sisa";
-import {
-  verificarDniGlobal,
-  verificarUnicidadMedico,
-} from "@/lib/auth/verificacion-medico";
+import { verificarDniGlobal } from "@/lib/auth/verificacion-medico";
 import { createAdminServerClient, createAnonServerClient } from "@/lib/supabase/server";
-import { esEmailValido, esMatriculaProvisoria, esTelefonoValido, normalizarJurisdiccionSisa, normalizarMatricula } from "@/lib/validation/profile";
+import { esEmailValido, esTelefonoValido, normalizarJurisdiccionSisa } from "@/lib/validation/profile";
 import {
   detalle400DesdeZod,
   dniSchema,
@@ -59,7 +56,6 @@ interface RegisterRequest {
   email_contacto?: string;
   especialidad?: string;
   jurisdiccion?: string;
-  matricula?: string;
   nombre?: string;
   nombre_completo?: string;
   password: string;
@@ -78,16 +74,15 @@ async function dniOcupado(admin: SupabaseClient, dni: string): Promise<boolean> 
  *
  * - Paciente: DNI obligatorio (Zod estricto 7-8 dígitos) y único en todo el
  *   sistema (409 si ya existe). Formato inválido → 400 con el campo detallado.
- * - Médico: DNI + jurisdicción oficial + matrícula + teléfono + especialidad,
- *   todos obligatorios (400 por campo). La credencial se contrasta contra el
- *   padrón SISA: sin coincidencia se bloquea con 403 ("Médico no registrado…").
- *   Las matrículas `TEST-...` solo pasan con email en `DEV_ADMIN_EMAILS`
- *   (403 para usuarios comunes). Matrícula o DNI ya registrados → 409.
+ * - Médico: DNI + jurisdicción oficial + teléfono + especialidad, todos
+ *   obligatorios (400 por campo). El DNI se contrasta contra el padrón SISA:
+ *   sin coincidencia se bloquea con 403 ("Médico no registrado…"). Los DNIs de
+ *   prueba (`TEST_DNIS`) solo pasan con email en `DEV_ADMIN_EMAILS` (403 para
+ *   usuarios comunes). DNI ya registrado → 409.
  * - Médico por invitación (opcional, `MEDICO_INVITE_CODE` configurado):
- *   matrícula ausente o en trámite + código válido → alta con matrícula
- *   provisoria `PENDIENTE-...` y `estado_verificacion = "pendiente"` (sin
+ *   código válido → alta con `estado_verificacion = "pendiente"` (sin
  *   contraste SISA). Código ausente/inválido → 403 fail-closed. Sin secreto
- *   configurado rige la vía estricta (matrícula obligatoria, 400).
+ *   configurado rige la vía estricta (verificación del DNI).
  * - Institución: nombre + CUIT (11 dígitos con checksum AFIP) +
  *   documentación (≥1 referencia) + `codigo_invitacion` obligatorio contra
  *   `INSTITUCION_INVITE_CODE` (403 si falta o no coincide). CUIT duplicado →
@@ -122,7 +117,6 @@ export async function POST(req: Request) {
   // ── Validación estricta por rol (Zod) ──────────────────────────────────
   let dniNormalizado: string | undefined;
   let jurisdiccionNormalizada: string | undefined;
-  let matriculaNormalizada: string | undefined;
   let telefonoNormalizado: string | undefined;
   let especialidadNormalizada: string | undefined;
   let verificacionMedica = "pendiente";
@@ -130,28 +124,25 @@ export async function POST(req: Request) {
   let inviteMedicoModo: ModoInvitacion | null = null;
 
   if (rol === "medico") {
-    const matriculaCruda = input.matricula?.trim() ?? "";
-    // Bypass: las matrículas de prueba exigen email autorizado. Se rechaza
-    // ANTES de crear la cuenta para no dejar usuarios huérfanos sin perfil.
-    const bloqueo = motivoBloqueoMatriculaDePrueba(email, matriculaCruda);
+    const codigoInvitacion = input.codigo_invitacion?.trim() ?? "";
+    // Bypass: los DNIs de prueba (`TEST_DNIS`) exigen email autorizado. Se
+    // rechaza ANTES de crear la cuenta para no dejar usuarios huérfanos.
+    const bloqueo = motivoBloqueoDniDePrueba(email, input.dni);
     if (bloqueo) {
       return jsonError(bloqueo, 403);
     }
     const esBypass = isDevBypassActiveFor(email);
-    // Vía de invitación: matrícula ausente o en trámite + mecanismo habilitado
-    // (`MEDICO_INVITE_CODE`). Sin secreto configurado rige la vía estricta
-    // clásica (matrícula obligatoria, 400). Con secreto, el código se exige
-    // (403 fail-closed) y suple al padrón SISA: sin matrícula no hay qué
-    // contrastar; el perfil nace `pendiente` con matrícula provisoria
-    // `PENDIENTE-...` generada al provisionar.
-    const porInvitacion = !esBypass && esMatriculaProvisoria(matriculaCruda) && invitacionMedicaHabilitada();
+    // Vía de invitación: se activa cuando el formulario envía código y el
+    // mecanismo está habilitado (`MEDICO_INVITE_CODE`). Suple al padrón SISA:
+    // el perfil nace `pendiente`. Sin secreto rige la vía estricta.
+    const porInvitacion =
+      !esBypass && invitacionMedicaHabilitada() && codigoInvitacion.length > 0;
     if (porInvitacion) {
       const validacion = medicoAltaInvitacionSchema.safeParse({
         codigo_invitacion: input.codigo_invitacion,
         dni: input.dni,
         especialidad: input.especialidad,
         jurisdiccion: input.jurisdiccion,
-        matricula: matriculaCruda.length > 0 ? matriculaCruda : undefined,
         telefono_contacto: input.telefono_contacto,
       });
       if (!validacion.success) {
@@ -171,14 +162,12 @@ export async function POST(req: Request) {
       dniNormalizado = validacion.data.dni.trim();
       jurisdiccionNormalizada =
         normalizarJurisdiccionSisa(validacion.data.jurisdiccion) ?? validacion.data.jurisdiccion.trim().toUpperCase();
-      // Sin matrícula real no hay unicidad de matrícula ni SISA que verificar:
-      // solo la unicidad global del DNI (409). La provisoria `PENDIENTE-...`
-      // la genera `confirmarYProvisionar` (única por usuario).
+      // La vía de invitación omite el padrón SISA: solo resta la unicidad
+      // global del DNI (409).
       const dniRes = await verificarDniGlobal(admin, { dni: dniNormalizado, usuarioId: SIN_USUARIO });
       if (dniRes.conflicto) {
         return jsonError(MENSAJE_DNI_DUPLICADO, 409);
       }
-      matriculaNormalizada = undefined;
       telefonoNormalizado = validacion.data.telefono_contacto.trim();
       especialidadNormalizada = validacion.data.especialidad.trim();
       verificacionMedica = "pendiente";
@@ -188,7 +177,6 @@ export async function POST(req: Request) {
         dni: input.dni,
         especialidad: input.especialidad,
         jurisdiccion: input.jurisdiccion,
-        matricula: input.matricula,
         telefono_contacto: input.telefono_contacto,
       });
       if (!validacion.success) {
@@ -198,32 +186,18 @@ export async function POST(req: Request) {
       dniNormalizado = validacion.data.dni.trim();
       jurisdiccionNormalizada =
         normalizarJurisdiccionSisa(validacion.data.jurisdiccion) ?? validacion.data.jurisdiccion.trim().toUpperCase();
-      matriculaNormalizada = normalizarMatricula(validacion.data.matricula);
       telefonoNormalizado = validacion.data.telefono_contacto.trim();
       especialidadNormalizada = validacion.data.especialidad.trim();
 
       // Unicidad (409) y padrón SISA (403): consultas independientes en paralelo.
-      const [dniRes, matriculaRes, sisaRes] = await Promise.all([
+      const [dniRes, sisaRes] = await Promise.all([
         verificarDniGlobal(admin, { dni: dniNormalizado, usuarioId: SIN_USUARIO }),
-        verificarUnicidadMedico(admin, {
-          dni: dniNormalizado,
-          jurisdiccion: jurisdiccionNormalizada,
-          matricula: matriculaNormalizada,
-          usuarioId: SIN_USUARIO,
-        }),
         esBypass
           ? Promise.resolve({ ok: true as const })
-          : verificarProfesionalSisa(admin, {
-              dni: dniNormalizado,
-              jurisdiccion: jurisdiccionNormalizada,
-              matricula: matriculaNormalizada,
-            }),
+          : verificarProfesionalSisa(admin, { dni: dniNormalizado }),
       ]);
       if (dniRes.conflicto) {
         return jsonError(MENSAJE_DNI_DUPLICADO, 409);
-      }
-      if (matriculaRes.conflicto) {
-        return jsonError(matriculaRes.conflicto, 409);
       }
       if (!sisaRes.ok) {
         return jsonError(sisaRes.mensaje, 403);
@@ -331,7 +305,6 @@ export async function POST(req: Request) {
     estado_verificacion: rol === "medico" ? verificacionMedica : undefined,
     invite_modo: inviteMedicoModo ?? undefined,
     jurisdiccion: jurisdiccionNormalizada ?? input.jurisdiccion,
-    matricula: matriculaNormalizada ?? input.matricula,
     nombre: institucionNormalizada?.nombre ?? input.nombre,
     nombre_completo: input.nombre_completo,
     telefono: institucionNormalizada?.telefono,
@@ -377,10 +350,10 @@ export async function POST(req: Request) {
       appRol: rol,
     });
   } catch (err) {
-    // Defensa en profundidad: el guard central también rechaza TEST- sin
-    // permiso (p. ej. condición de carrera con el chequeo previo).
+    // Defensa en profundidad: el guard central también rechaza un DNI de
+    // prueba sin permiso (p. ej. condición de carrera con el chequeo previo).
     if ((err as { code?: string } | null)?.code === CODIGO_BYPASS_REQUERIDO) {
-      return jsonError(err instanceof Error ? err.message : "Matrícula de prueba no autorizada.", 403);
+      return jsonError(err instanceof Error ? err.message : "DNI de prueba no autorizado.", 403);
     }
     // El perfil pendiente se auto-provisiona en el siguiente acceso
     // (/api/auth/rol). No se bloquea el ingreso por un fallo transitorio.

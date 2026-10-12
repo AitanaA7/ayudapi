@@ -6,8 +6,6 @@ import {
   esJurisdiccionSisaValida,
   esTelefonoValido,
   JURISDICCIONES_SISA,
-  MATRICULA_PRUEBA_REGEX,
-  MATRICULA_REAL_REGEX,
 } from "@/lib/validation/profile";
 
 /**
@@ -17,15 +15,15 @@ import {
  * - DNI obligatorio para pacientes Y médicos: exactamente 7 u 8 dígitos
  *   numéricos, sin puntos ni letras. Cada DNI es único (una cuenta por DNI);
  *   el duplicado responde HTTP 409.
- * - Médico: DNI + jurisdicción oficial + matrícula + teléfono + especialidad,
- *   todos obligatorios. Formato incorrecto o faltante → HTTP 400 con el campo
+ * - Médico: DNI + jurisdicción oficial + teléfono + especialidad, todos
+ *   obligatorios. Formato incorrecto o faltante → HTTP 400 con el campo
  *   detallado. La verificación contra el padrón SISA vive en
  *   `@/lib/auth/sisa` y bloquea con 403 si no hay coincidencia.
- * - Matrículas `TEST-...` solo pasan el formato; el permiso lo decide
+ * - DNIs de prueba (`TEST_DNIS`) solo registran con email en
  *   `DEV_ADMIN_EMAILS` (403 para usuarios comunes).
- * - Médico sin matrícula (ausente o en trámite): vía de invitación opcional
- *   `MEDICO_INVITE_CODE` (`medicoAltaInvitacionSchema` + gate 403
- *   fail-closed). Sin secreto configurado rige la vía estricta (400).
+ * - Vía de invitación médica opcional `MEDICO_INVITE_CODE`
+ *   (`medicoAltaInvitacionSchema` + gate 403 fail-closed): omite la
+ *   verificación SISA. Sin secreto configurado rige la vía estricta.
  * - Institución: se identifica por CUIT, nunca por DNI. El `dni` se ignora
  *   por completo en su alta/vinculación (frontend y backend).
  */
@@ -33,18 +31,16 @@ import {
 export const MENSAJE_DNI =
   "El DNI es obligatorio y debe tener exactamente 7 u 8 dígitos numéricos, sin puntos ni letras.";
 export const MENSAJE_JURISDICCION = `La jurisdicción es obligatoria y debe ser una emisora oficial SISA/REFEPS (${JURISDICCIONES_SISA.join(", ")}).`;
-export const MENSAJE_MATRICULA =
-  "La matrícula profesional es obligatoria: 4 a 8 dígitos (con o sin prefijo MN/MP/ME) o matrícula de prueba TEST-... para desarrollo autorizado.";
 export const MENSAJE_TELEFONO =
   "El teléfono de contacto es obligatorio y debe contener entre 8 y 15 dígitos.";
 export const MENSAJE_ESPECIALIDAD =
   "La especialidad es obligatoria (mínimo 3 caracteres).";
 export const MENSAJE_SISA =
-  "Médico no registrado o datos de matrícula inválidos en el sistema. Verificá DNI, jurisdicción y matrícula o contactá al colegio profesional correspondiente.";
+  "Médico no registrado en el sistema. Verificá tu DNI o contactá al colegio profesional correspondiente.";
 export const MENSAJE_DNI_DUPLICADO =
   "Ese DNI ya está registrado en otra cuenta. Cada DNI puede tener una sola cuenta: verificá el número ingresado o iniciá sesión.";
 export const MENSAJE_BYPASS_DENEGADO =
-  "Las matrículas de prueba (TEST-...) solo están habilitadas para cuentas de desarrollo autorizadas (DEV_ADMIN_EMAILS). Si sos profesional, ingresá tu DNI y matrícula real validada.";
+  "El DNI ingresado solo está habilitado para cuentas de desarrollo autorizadas (DEV_ADMIN_EMAILS). Si sos profesional, ingresá tu DNI real.";
 export const MENSAJE_INSTITUCION_NOMBRE =
   "El nombre de la institución es obligatorio (mínimo 3 caracteres, máximo 120).";
 export const MENSAJE_INSTITUCION_CUIT =
@@ -56,7 +52,7 @@ export const MENSAJE_INSTITUCION_INVITACION =
 export const MENSAJE_CUIT_DUPLICADO =
   "Ese CUIT ya está registrado en otra institución. Verificá el número ingresado o iniciá sesión.";
 export const MENSAJE_MEDICO_INVITACION =
-  "El código de invitación de médico es obligatorio cuando la matrícula está ausente o en trámite. Solicitalo a tu institución o a un administrador.";
+  "El código de invitación de médico es obligatorio para habilitar la cuenta sin verificación SISA. Solicitalo a tu institución o a un administrador.";
 
 /** DNI estricto: string crudo del formulario, sin normalizar antes. */
 export const dniSchema = z
@@ -70,15 +66,6 @@ export const jurisdiccionSchema = z
   .min(1, MENSAJE_JURISDICCION)
   .refine((valor) => esJurisdiccionSisaValida(valor), MENSAJE_JURISDICCION);
 
-export const matriculaSchema = z
-  .string({ error: MENSAJE_MATRICULA })
-  .trim()
-  .min(1, MENSAJE_MATRICULA)
-  .refine((valor) => {
-    const upper = valor.trim().toUpperCase();
-    return MATRICULA_REAL_REGEX.test(upper) || MATRICULA_PRUEBA_REGEX.test(upper);
-  }, MENSAJE_MATRICULA);
-
 export const telefonoSchema = z
   .string({ error: MENSAJE_TELEFONO })
   .trim()
@@ -91,19 +78,16 @@ export const especialidadSchema = z
   .min(3, MENSAJE_ESPECIALIDAD);
 
 /**
- * Alta médica estricta: DNI + jurisdicción + matrícula + teléfono +
- * especialidad, todos obligatorios. También cubre la transición
- * paciente→médico (mismo rigor) y el completar-perfil.
- * `codigo_invitacion` se acepta (opcional) y se ignora en la vía normal: solo
- * la usa la vía de invitación (`medicoAltaInvitacionSchema`) cuando la
- * matrícula está ausente o en trámite.
+ * Alta médica estricta: DNI + jurisdicción + teléfono + especialidad, todos
+ * obligatorios. También cubre la transición paciente→médico (mismo rigor) y el
+ * completar-perfil. `codigo_invitacion` se acepta (opcional) y se ignora en la
+ * vía normal: solo la usa la vía de invitación (`medicoAltaInvitacionSchema`).
  */
 export const medicoAltaSchema = z.strictObject({
   codigo_invitacion: z.string().trim().optional(),
   dni: dniSchema,
   especialidad: especialidadSchema,
   jurisdiccion: jurisdiccionSchema,
-  matricula: matriculaSchema,
   telefono_contacto: telefonoSchema,
 });
 
@@ -111,18 +95,15 @@ export type MedicoAltaInput = z.infer<typeof medicoAltaSchema>;
 
 /**
  * Alta médica por invitación (`MEDICO_INVITE_CODE`): mismo rigor que
- * `medicoAltaSchema` EXCEPTO la matrícula, que puede estar ausente o en
- * trámite. El endpoint que la acepta debe verificar el código con
- * `verificarCodigoInvitacionMedico` (403 fail-closed), omitir el padrón SISA
- * (sin matrícula no hay qué contrastar) y persistir matrícula provisoria
- * `PENDIENTE-...` con `estado_verificacion = "pendiente"`.
+ * `medicoAltaSchema`, pero el endpoint que la acepta verifica el código con
+ * `verificarCodigoInvitacionMedico` (403 fail-closed) y OMITE el padrón SISA,
+ * dejando `estado_verificacion = "pendiente"` con `invite_modo = "codigo"`.
  */
 export const medicoAltaInvitacionSchema = z.strictObject({
   codigo_invitacion: z.string({ error: MENSAJE_MEDICO_INVITACION }).trim().min(1, MENSAJE_MEDICO_INVITACION),
   dni: dniSchema,
   especialidad: especialidadSchema,
   jurisdiccion: jurisdiccionSchema,
-  matricula: matriculaSchema.optional(),
   telefono_contacto: telefonoSchema,
 });
 

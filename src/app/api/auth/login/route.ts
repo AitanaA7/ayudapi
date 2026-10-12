@@ -5,9 +5,8 @@ import { ipDeRequest, registrarActividadSesion } from "@/lib/auth/actividad-serv
 import { isDevBypassActiveFor } from "@/lib/auth/dev-bypass";
 import { jsonError, jsonOk } from "@/lib/auth/session";
 import { createAdminServerClient, createAnonServerClient } from "@/lib/supabase/server";
-import { esMatriculaProvisoria, esMatriculaDePrueba } from "@/lib/validation/profile";
 import { esEmailValido } from "@/lib/validation/profile";
-import { MENSAJE_BYPASS_DENEGADO, MENSAJE_SISA } from "@/lib/validation/schemas";
+import { MENSAJE_SISA } from "@/lib/validation/schemas";
 
 export const runtime = "nodejs";
 
@@ -29,12 +28,11 @@ function esEmailNoConfirmado(mensaje: string): boolean {
 
 /**
  * Control de acceso del panel médico (etapa de desarrollo): el estado
- * "pendiente" —incluida la matrícula provisoria `PENDIENTE-...`— posee los
- * mismos permisos que "verificado", sin bloqueos. Solo se bloquea:
- * - Matrícula `TEST-...` sin bypass → 403 (canal de prueba exclusivo dev).
+ * "pendiente" posee los mismos permisos que "verificado", sin bloqueos. Solo
+ * se bloquea:
  * - `estado_verificacion = "rechazado"` → 403 ("Médico no registrado…").
- * - Sin fila o con matrícula provisoria → se permite (completa el alta en
- *   `/medico/completar-perfil` o `/api/auth/vincular-rol`).
+ * - Sin fila → se permite (completa el alta en `/medico/completar-perfil` o
+ *   `/api/auth/vincular-rol`).
  */
 async function bloqueoPanelMedico(
   admin: SupabaseClient,
@@ -54,22 +52,11 @@ async function bloqueoPanelMedico(
   const bypass = isDevBypassActiveFor(email);
   const { data: perfil } = await admin
     .from("perfiles_medico")
-    .select("matricula, estado_verificacion")
+    .select("estado_verificacion")
     .eq("usuario_id", usuarioId)
     .maybeSingle();
   if (!perfil) {
     return null;
-  }
-  const matricula =
-    typeof (perfil as { matricula?: unknown }).matricula === "string"
-      ? String((perfil as { matricula?: unknown }).matricula)
-      : "";
-  // Sin credencial real todavía: a completar el alta (mismo rigor allí).
-  if (esMatriculaProvisoria(matricula) || matricula.trim().length === 0) {
-    return null;
-  }
-  if (esMatriculaDePrueba(matricula) && !bypass) {
-    return jsonError(MENSAJE_BYPASS_DENEGADO, 403);
   }
   const estadoRaw = (perfil as { estado_verificacion?: unknown })
     .estado_verificacion;

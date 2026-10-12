@@ -26,7 +26,6 @@ interface PerfilMedicoResumen {
   especialidad?: string | null;
   estado_verificacion?: string | null;
   invite_modo?: string | null;
-  matricula?: string | null;
   telefono_contacto?: string | null;
 }
 

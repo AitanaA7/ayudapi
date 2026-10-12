@@ -14,9 +14,6 @@ import { useRol } from "@/lib/auth/use-rol";
 import {
   esDniEstrictoValido,
   esJurisdiccionSisaValida,
-  esMatriculaDePrueba,
-  esMatriculaProvisoria,
-  esMatriculaRealValida,
   esTelefonoValido,
   JURISDICCIONES_SISA,
 } from "@/lib/validation/profile";
@@ -35,7 +32,6 @@ interface VincularRespuesta {
 export default function CompletarPerfilMedicoPage() {
   const router = useRouter();
   const { loading, rol, session } = useRol();
-  const [matricula, setMatricula] = useState("");
   const [codigo, setCodigo] = useState("");
   const [dni, setDni] = useState("");
   const [jurisdiccion, setJurisdiccion] = useState("");
@@ -67,7 +63,6 @@ export default function CompletarPerfilMedicoPage() {
     apiFetch<{ perfil: PerfilMedicoRow }>("/api/medico/me", session)
       .then((res) => {
         if (!activo) return;
-        setMatricula(esMatriculaProvisoria(res.perfil.matricula) ? "" : (res.perfil.matricula ?? ""));
         setDni(res.perfil.dni ?? "");
         setJurisdiccion(res.perfil.jurisdiccion ?? "");
         setEspecialidad(res.perfil.especialidad ?? "");
@@ -93,17 +88,6 @@ export default function CompletarPerfilMedicoPage() {
     setPendiente(false);
     const campos: string[] = [];
     if (!esDniEstrictoValido(dni)) campos.push("DNI (7 u 8 dígitos, sin puntos)");
-    const matriculaLimpia = matricula.trim();
-    // Matrícula ausente o en trámite: se admite código de invitación médica
-    // (el backend lo exige vía `MEDICO_INVITE_CODE`, 403 fail-closed).
-    const sinMatricula =
-      matriculaLimpia.length === 0 || esMatriculaProvisoria(matriculaLimpia);
-    if (!sinMatricula && !esMatriculaRealValida(matriculaLimpia) && !esMatriculaDePrueba(matriculaLimpia)) {
-      campos.push("matrícula profesional");
-    }
-    if (sinMatricula && codigo.trim().length === 0) {
-      campos.push("matrícula profesional o código de invitación de médico");
-    }
     if (!esJurisdiccionSisaValida(jurisdiccion)) campos.push("jurisdicción oficial");
     if (especialidad.trim().length < 3) campos.push("especialidad");
     if (!esTelefonoValido(telefono)) campos.push("teléfono de contacto");
@@ -115,7 +99,9 @@ export default function CompletarPerfilMedicoPage() {
       setError("No hay sesión activa. Volvé a ingresar.");
       return;
     }
-    const porInvitacion = sinMatricula;
+    // Vía de invitación: basta con enviar el código (el backend lo exige vía
+    // `MEDICO_INVITE_CODE`, 403 fail-closed).
+    const porInvitacion = codigo.trim().length > 0;
     setSalvando(true);
     try {
       const datos = {
@@ -123,7 +109,6 @@ export default function CompletarPerfilMedicoPage() {
         dni: dni.trim(),
         especialidad: especialidad.trim(),
         jurisdiccion: jurisdiccion.trim(),
-        matricula: matricula.trim() || undefined,
         telefono_contacto: telefono.trim(),
       };
       const cuerpo = JSON.stringify(datos);
@@ -136,9 +121,9 @@ export default function CompletarPerfilMedicoPage() {
             method: "PUT",
           },
         );
-        // Guardado por invitación: el perfil queda pendiente de verificación
-        // de matrícula, pero en esta etapa opera con acceso completo (mismos
-        // permisos que verificado). Se continúa al destino o al escáner.
+        // Guardado por invitación: el perfil queda pendiente de verificación,
+        // pero en esta etapa opera con acceso completo (mismos permisos que
+        // verificado). Se continúa al destino o al escáner.
         if (res.invitacion ?? porInvitacion) {
           const destinoInvitacion = window.sessionStorage.getItem(RUTA_DESTINO_KEY);
           if (destinoInvitacion?.startsWith("/") && !destinoInvitacion.startsWith("//")) {
@@ -296,19 +281,6 @@ export default function CompletarPerfilMedicoPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-sm font-medium text-gray-700 block mb-1">
-                      Matrícula profesional <span className="text-blue-600">*</span>
-                    </label>
-                    <input
-                      className={inputClass}
-                      disabled={salvando}
-                      onChange={(e) => setMatricula(e.target.value)}
-                      placeholder="MP 123456 / MN 789012"
-                      type="text"
-                      value={matricula}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-700 block mb-1">
                       Jurisdicción <span className="text-blue-600">*</span>
                     </label>
                     <ResponsiveSelect
@@ -322,10 +294,6 @@ export default function CompletarPerfilMedicoPage() {
                       value={jurisdiccion}
                     />
                   </div>
-                </div>
-                <p className="text-xs text-gray-400">Tu credencial se verifica contra el padrón SISA/REFEPS. Sin coincidencia, el alta se bloquea.</p>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-sm font-medium text-gray-700 block mb-1">
                       Especialidad <span className="text-blue-600">*</span>
@@ -339,21 +307,23 @@ export default function CompletarPerfilMedicoPage() {
                       value={especialidad}
                     />
                   </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-700 block mb-1">
-                      Código de invitación de médico
-                    </label>
-                    <input
-                      className={inputClass}
-                      disabled={salvando}
-                      onChange={(e) => setCodigo(e.target.value)}
-                      placeholder="Solo si la matrícula está en trámite"
-                      type="text"
-                      value={codigo}
-                    />
-                  </div>
                 </div>
-                <p className="text-xs text-gray-400">Si aún no tenés matrícula, ingresá el código provisto por tu institución.</p>
+                <p className="text-xs text-gray-400">Tu DNI se verifica contra el padrón SISA/REFEPS. Sin coincidencia, el alta se bloquea.</p>
+
+                <div>
+                  <label className="text-sm font-medium text-gray-700 block mb-1">
+                    Código de invitación de médico
+                  </label>
+                  <input
+                    className={inputClass}
+                    disabled={salvando}
+                    onChange={(e) => setCodigo(e.target.value)}
+                    placeholder="Solo si no vas a verificar tu DNI"
+                    type="text"
+                    value={codigo}
+                  />
+                  <p className="text-xs text-gray-400 mt-1">Si no podés verificar tu DNI ahora, ingresá el código provisto por tu institución.</p>
+                </div>
               </div>
 
               {error && (
@@ -364,7 +334,7 @@ export default function CompletarPerfilMedicoPage() {
 
               {pendiente && (
                 <p className="text-sm text-blue-800 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 mb-4">
-                  Perfil guardado como pendiente de verificación de matrícula. Ya podés operar con acceso completo; cuando te otorguen tu matrícula definitiva, actualizala aquí.
+                  Perfil guardado como pendiente de verificación. Ya podés operar con acceso completo; cuando verifiques tu DNI, actualizá tus datos aquí.
                 </p>
               )}
 
@@ -387,7 +357,7 @@ export default function CompletarPerfilMedicoPage() {
           <div className="mt-4 bg-blue-50 border border-blue-100 rounded-xl p-3 flex gap-2">
             <Lock className="text-blue-600 flex-shrink-0 mt-0.5" size={14} />
             <p className="text-xs text-blue-800 leading-relaxed">
-              <strong>Datos protegidos:</strong> con tu matrícula registramos cada
+              <strong>Datos protegidos:</strong> con tu DNI registramos cada
               consulta al historial clínico en la auditoría.
             </p>
           </div>

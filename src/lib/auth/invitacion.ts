@@ -71,20 +71,20 @@ export function verificarCodigoInvitacion(
 /**
  * `true` si la vía de invitación médica está habilitada
  * (`MEDICO_INVITE_CODE` configurado). Los endpoints la consultan ANTES de
- * ofrecer la vía sin matrícula; sin secreto rige la validación estricta
- * clásica (matrícula obligatoria, 400).
+ * ofrecer la vía sin verificación SISA; sin secreto rige la validación
+ * estricta clásica (verificación del DNI contra el padrón).
  */
 export function invitacionMedicaHabilitada(): boolean {
   return leerSecreto(MEDICO_INVITE_ENV).length > 0;
 }
 
 /**
- * Gate de la vía médica sin matrícula (matrícula ausente o en trámite).
+ * Gate de la vía médica sin verificación SISA (código de invitación).
  * Falla cerrado: sin secreto configurado o con código inválido → 403.
  */
 export function verificarCodigoInvitacionMedico(codigo: unknown): ResultadoInvitacion {
   return verificarCodigoInvitacion(codigo, leerSecreto(MEDICO_INVITE_ENV), {
-    deshabilitado: "La invitación médica está deshabilitada. Ingresá tu matrícula profesional.",
+    deshabilitado: "La invitación médica está deshabilitada. Verificá tu DNI con el padrón.",
     deshabilitadoCode: CODIGO_MEDICO_DESHABILITADO,
     invalido: MENSAJE_MEDICO_INVITACION,
     invalidoCode: CODIGO_MEDICO_INVALIDO,

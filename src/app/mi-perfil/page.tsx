@@ -233,11 +233,7 @@ export default function MiPerfilPage() {
                 Acceso auditado
               </span>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center mb-4">
-              <div className="bg-gray-50 rounded-xl py-3">
-                <p className="text-xs text-gray-400">Matrícula</p>
-                <p className="font-semibold text-gray-900 text-sm break-all">{data.perfil_medico?.matricula ?? "—"}</p>
-              </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-center mb-4">
               <div className="bg-gray-50 rounded-xl py-3">
                 <p className="text-xs text-gray-400">DNI · Jurisdicción</p>
                 <p className="font-semibold text-gray-900 text-sm">{data.perfil_medico?.dni ?? "—"} · {data.perfil_medico?.jurisdiccion ?? "—"}</p>

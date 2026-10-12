@@ -71,9 +71,9 @@ function parsearEntero(valor: string | null, fallback: number, maximo: number): 
 /**
  * Resuelve la identidad real de cada operador de la página (trazabilidad Ley
  * 25.326): el `usuario_id` NO se anonimiza. Se muestra el nombre de la
- * institución cuando el operador lo es, "nombre · MP {matrícula}" cuando es
- * médico y, en otro caso, el nombre/email de la cuenta. Solo `paciente_id` se
- * expone anonimizado (formato PAC-****-XXXX).
+ * institución cuando el operador lo es, "nombre · DNI {dni}" cuando es médico
+ * y, en otro caso, el nombre/email de la cuenta. Solo `paciente_id` se expone
+ * anonimizado (formato PAC-****-XXXX).
  */
 async function resolverOperadores(
   admin: SupabaseClient,
@@ -89,7 +89,7 @@ async function resolverOperadores(
 
   const [instituciones, medicos, cuentas] = await Promise.all([
     admin.from("perfiles_institucion").select("nombre, usuario_id").in("usuario_id", ids),
-    admin.from("perfiles_medico").select("matricula, usuario_id").in("usuario_id", ids),
+    admin.from("perfiles_medico").select("dni, usuario_id").in("usuario_id", ids),
     Promise.all(
       ids.map(async (id): Promise<{ cuenta: IdentidadCuenta; id: string }> => {
         const { data, error } = await admin.auth.admin.getUserById(id);
@@ -113,21 +113,23 @@ async function resolverOperadores(
       nombreInstitucion.set(fila.usuario_id, fila.nombre);
     }
   }
-  const matriculaMedico = new Map<string, string>();
+  const dniMedico = new Map<string, string>();
   if (!medicos.error) {
-    for (const fila of (medicos.data ?? []) as { matricula: string; usuario_id: string }[]) {
-      matriculaMedico.set(fila.usuario_id, fila.matricula);
+    for (const fila of (medicos.data ?? []) as { dni: string | null; usuario_id: string }[]) {
+      if (fila.dni) {
+        dniMedico.set(fila.usuario_id, fila.dni);
+      }
     }
   }
 
   for (const { id, cuenta } of cuentas) {
     const institucion = nombreInstitucion.get(id);
-    const matricula = matriculaMedico.get(id);
+    const dni = dniMedico.get(id);
     const nombre = nombreRealDeCuenta(cuenta);
     if (institucion) {
       mapa.set(id, institucion);
-    } else if (matricula) {
-      mapa.set(id, `${nombre ?? "Operador"} · MP ${matricula}`);
+    } else if (dni) {
+      mapa.set(id, `${nombre ?? "Operador"} · DNI ${dni}`);
     } else {
       mapa.set(id, nombre ?? "Operador");
     }

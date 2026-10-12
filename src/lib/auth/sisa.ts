@@ -1,39 +1,39 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import {
-  esMatriculaDePrueba,
-  normalizarDni,
-  normalizarJurisdiccionSisa,
-  normalizarMatricula,
-} from "@/lib/validation/profile";
+import { normalizarDni } from "@/lib/validation/profile";
 import { MENSAJE_SISA } from "@/lib/validation/schemas";
 
 /**
  * Verificación formal de profesionales contra el padrón SISA/REFEPS.
  *
- * Fuentes del padrón (en orden):
- * 1. Tabla `public.padron_profesionales` (entorno real / producción).
- * 2. Variable `SISA_PADRON_JSON`: array JSON `[{dni, matricula, jurisdiccion}]`
- *    para seed local o CI sin base dedicada.
+ * La identidad se resuelve EXCLUSIVAMENTE por DNI: no se usa ni matrícula ni
+ * jurisdicción. Fuentes del padrón (en orden):
+ * 1. Microservicio de scraping SISA/REFEPS (`SCRAPER_URL`, Fly.io).
+ * 2. Tabla `public.padron_profesionales` (entorno real / producción).
+ * 3. Variable `SISA_PADRON_JSON`: array JSON `[{dni}]` para seed local o CI.
  *
- * Regla de oro: falla cerrado. Si el trío (DNI, matrícula, jurisdicción) no
- * coincide exactamente con el padrón, el alta se bloquea con el mensaje
- * oficial "Médico no registrado o datos de matrícula inválidos en el
- * sistema". Las matrículas `TEST-...` nunca se consultan al padrón: las
- * autoriza (o deniega con 403) el bypass de `DEV_ADMIN_EMAILS`.
+ * Regla de oro: falla cerrado. Si el DNI no figura en ninguna fuente
+ * disponible, el alta se bloquea con el mensaje oficial "Médico no registrado
+ * o datos inválidos en el sistema".
  */
 
 export interface CredencialProfesional {
   dni: string;
-  jurisdiccion: string;
-  matricula: string;
 }
 
 interface FilaPadron {
   dni: string;
-  jurisdiccion: string;
-  matricula: string;
 }
+
+/** URL del microservicio de scraping SISA/REFEPS (Fly.io). */
+const SCRAPER_URL =
+  process.env.SCRAPER_URL?.trim() || "http://localhost:8080/verificar-sisa";
+
+/** Timeout de la consulta al microservicio (ms). */
+const SCRAPER_TIMEOUT_MS = 90_000;
+
+/** Interruptor de emergencia: `SISA_SCRAPE=false` desactiva el scraper. */
+const SISA_SCRAPE_HABILITADO = process.env.SISA_SCRAPE?.trim() !== "false";
 
 function esErrorRelacionInexistente(code: string | undefined, message: string): boolean {
   if (code === "PGRST204" || code === "42703" || code === "42P01") {
@@ -48,18 +48,12 @@ function esErrorRelacionInexistente(code: string | undefined, message: string): 
   );
 }
 
-function normalizarCredencial(raw: {
-  dni: unknown;
-  jurisdiccion: unknown;
-  matricula: unknown;
-}): CredencialProfesional | null {
+function normalizarCredencial(raw: { dni: unknown }): CredencialProfesional | null {
   const dni = normalizarDni(raw.dni);
-  const jurisdiccion = normalizarJurisdiccionSisa(raw.jurisdiccion);
-  const matricula = normalizarMatricula(raw.matricula);
-  if (!dni || !jurisdiccion || !matricula) {
+  if (!dni) {
     return null;
   }
-  return { dni, jurisdiccion, matricula };
+  return { dni };
 }
 
 /** Padrón embebido vía `SISA_PADRON_JSON` (seed local/CI). */
@@ -78,9 +72,7 @@ export function getPadronDesdeEnv(): FilaPadron[] {
       if (item === null || typeof item !== "object") {
         continue;
       }
-      const cred = normalizarCredencial(
-        item as { dni: unknown; jurisdiccion: unknown; matricula: unknown },
-      );
+      const cred = normalizarCredencial(item as { dni: unknown });
       if (cred) {
         filas.push(cred);
       }
@@ -92,12 +84,7 @@ export function getPadronDesdeEnv(): FilaPadron[] {
 }
 
 function coincideEnMemoria(padron: FilaPadron[], cred: CredencialProfesional): boolean {
-  return padron.some(
-    (fila) =>
-      fila.dni === cred.dni &&
-      fila.matricula === cred.matricula &&
-      fila.jurisdiccion === cred.jurisdiccion,
-  );
+  return padron.some((fila) => fila.dni === cred.dni);
 }
 
 async function coincideEnTabla(
@@ -108,8 +95,6 @@ async function coincideEnTabla(
     .from("padron_profesionales")
     .select("id")
     .eq("dni", cred.dni)
-    .eq("matricula", cred.matricula)
-    .eq("jurisdiccion", cred.jurisdiccion)
     .maybeSingle();
   if (error) {
     if (esErrorRelacionInexistente(error.code, error.message)) {
@@ -120,27 +105,78 @@ async function coincideEnTabla(
   return { chequeado: true, coincide: Boolean(data) };
 }
 
+/**
+ * Consulta al microservicio de scraping SISA/REFEPS (Fly.io).
+ * Retorna `true` si el DNI figura en el padrón; `false` si no. Errores de
+ * red/timeout/HTTP se propagan para forzar el fallback local.
+ */
+async function consultarSisaMicroservicio(
+  cred: CredencialProfesional,
+): Promise<boolean> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => {
+    controller.abort();
+  }, SCRAPER_TIMEOUT_MS);
+
+  try {
+    const res = await fetch(SCRAPER_URL, {
+      body: JSON.stringify({ dni: cred.dni }),
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+      signal: controller.signal,
+    });
+
+    if (!res.ok) {
+      throw new Error(`Scraper SISA respondió ${res.status}`);
+    }
+
+    const payload = (await res.json().catch(() => null)) as
+      | { mensaje?: string; ok: boolean }
+      | null;
+
+    return payload?.ok === true;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export type ResultadoSisa =
   | { mensaje: string; ok: false }
-  | { ok: true };
+  | { nombre?: string | null; ok: true };
 
 /**
- * Verifica la credencial contra el padrón. Falla cerrado: sin coincidencia
- * exacta devuelve `ok: false` con el mensaje oficial de bloqueo. Las
- * matrículas de prueba nunca llegan al padrón (las gobierna el bypass).
+ * Verifica el DNI contra el padrón. Falla cerrado: sin coincidencia devuelve
+ * `ok: false` con el mensaje oficial de bloqueo.
  */
 export async function verificarProfesionalSisa(
   admin: SupabaseClient,
-  raw: { dni: unknown; jurisdiccion: unknown; matricula: unknown },
+  raw: { dni: unknown },
 ): Promise<ResultadoSisa> {
   const cred = normalizarCredencial(raw);
   if (!cred) {
     return { mensaje: MENSAJE_SISA, ok: false };
   }
-  if (esMatriculaDePrueba(cred.matricula)) {
-    return { mensaje: MENSAJE_SISA, ok: false };
+
+  // 1. Fuente primaria: microservicio de scraping SISA (Fly.io). Ante rechazo
+  //    explícito o error de red/timeout se cae al padrón local.
+  if (SISA_SCRAPE_HABILITADO) {
+    try {
+      const coincideEnSisa = await consultarSisaMicroservicio(cred);
+      if (coincideEnSisa) {
+        return { ok: true };
+      }
+    } catch (error) {
+      console.warn(
+        "[sisa] Microservicio no disponible, se usa el padrón local:",
+        error,
+      );
+    }
   }
 
+  // 2. Fallback local: tabla `padron_profesionales` + `SISA_PADRON_JSON`.
   let tablaChequeada = false;
   try {
     const enTabla = await coincideEnTabla(admin, cred);
@@ -156,7 +192,7 @@ export async function verificarProfesionalSisa(
   } catch (error) {
     console.error("[sisa] No se pudo consultar el padrón:", error);
     return {
-      mensaje: "No se pudo verificar la matrícula con el padrón. Reintentá.",
+      mensaje: "No se pudo verificar el DNI con el padrón. Reintentá.",
       ok: false,
     };
   }
@@ -170,9 +206,9 @@ export async function verificarProfesionalSisa(
   }
 
   // Sin ninguna fuente de padrón configurada: bloqueo terminante. En local
-  // esto obliga a usar el bypass autorizado (`DEV_ADMIN_EMAILS` + `TEST-...`)
+  // esto obliga a usar el bypass autorizado (`DEV_ADMIN_EMAILS` + `TEST_DNIS`)
   // o a sembrar el padrón; en producción impide altas con datos no
-  // contrastados. Nunca se deja pasar una credencial sin verificar.
+  // contrastados. Nunca se deja pasar un DNI sin verificar.
   if (!tablaChequeada) {
     console.warn(
       "[sisa] Sin padrón configurado (ni tabla ni SISA_PADRON_JSON): bloqueo fail-closed.",
