@@ -16,10 +16,13 @@ services:
     depends_on:
       - prometheus
     environment:
-      # Cambiar esta contraseña antes de exponer el puerto a internet.
+      # Cambiá esta contraseña antes de exponer el puerto a internet.
       - GF_SECURITY_ADMIN_PASSWORD=cambiar_esta_password
     volumes:
       - grafana-data:/var/lib/grafana
+      # Data source y dashboard se cargan solos al arrancar (provisioning).
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
     ports:
       - "3001:3000"
 

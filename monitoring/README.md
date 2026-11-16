@@ -32,22 +32,26 @@ en verde, estado `UP`. Si dice `DOWN`, mirá el mensaje de error:
 - *conexión rechazada* → confirmá que `npm run dev` esté corriendo y
   escuchando en el puerto 3000.
 
-## 4. Configurá Grafana
-1. Entrá a `http://localhost:3001` (usuario `admin`, la password del
-   `docker-compose.yml` — cambiala ahí si no lo hiciste).
-2. Connections → Data sources → Add data source → Prometheus.
-3. URL: `http://prometheus:9090` (así se llaman entre sí los contenedores,
-   por el nombre del servicio en el `docker-compose.yml`).
-4. Save & test.
-5. Dashboards → New dashboard → Add visualization → elegí la data source
-   Prometheus, y usá cualquiera de estas métricas:
-   - `ayudapi_incidentes_total`
-   - `ayudapi_incidentes_resueltos`
-   - `ayudapi_incidentes_en_curso`
-   - `ayudapi_escaneos_total`
-   - `ayudapi_qr_activos`
-   - `ayudapi_atenciones_total`
-   - `ayudapi_usuarios_activos`
+## 4. Grafana (ya viene configurado)
+Entrá a `http://localhost:3001` (usuario `admin`, la password del
+`docker-compose.yml`). La data source de Prometheus y el dashboard
+**"AyudAPI - Métricas de negocio"** se cargan solos desde `grafana/`
+(provisioning), así que no hay que armar nada a mano.
+
+Si querés agregar más paneles, el dashboard es editable desde la interfaz.
+Las métricas disponibles son:
+- `ayudapi_incidentes_total`
+- `ayudapi_incidentes_resueltos`
+- `ayudapi_incidentes_en_curso`
+- `ayudapi_escaneos_total`
+- `ayudapi_qr_activos`
+- `ayudapi_atenciones_total`
+- `ayudapi_usuarios_activos`
+
+Si cambiás los archivos de `grafana/` y no ves los cambios:
+```bash
+docker compose restart grafana
+```
 
 ## Si en algún momento se despliega contra el deploy real (Vercel)
 En vez de apuntar a tu máquina local, se puede apuntar al dominio real de
