@@ -6,6 +6,7 @@ import {
   Activity,
   AlertTriangle,
   BarChart3,
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   FileText,
@@ -86,6 +87,15 @@ interface HeatmapResponse {
   periodo: Periodo;
 }
 
+interface IncidenteActivo {
+  estado: string;
+  id: string;
+  lat: number | null;
+  lng: number | null;
+  timestamp: string;
+  tipo: string;
+}
+
 interface LogAuditoria {
   accion: string;
   creado_en: string;
@@ -116,6 +126,7 @@ const ETIQUETAS_PERIODO = new Map<Periodo, string>([
 const ETIQUETA_ACCION = new Map<string, string>([
   ["consulta_auditoria", "Consulta de auditoría"],
   ["consulta_dashboard", "Consulta de dashboard"],
+  ["resolver_incidente", "Resolución de incidente"],
   ["verificar_qr", "Verificación de QR"],
 ]);
 
@@ -253,6 +264,12 @@ function PanelInstitucional({ session }: PanelProps) {
   const [filtroAccion, setFiltroAccion] = useState("");
   const [intentoLogs, setIntentoLogs] = useState(0);
 
+  const [incidentesAbiertos, setIncidentesAbiertos] = useState<IncidenteActivo[]>([]);
+  const [cargandoIncidentes, setCargandoIncidentes] = useState(false);
+  const [errorIncidentes, setErrorIncidentes] = useState<string | null>(null);
+  const [resolviendoIncidente, setResolviendoIncidente] = useState<string | null>(null);
+  const [intentoIncidentes, setIntentoIncidentes] = useState(0);
+
   useEffect(() => {
     let activo = true;
 
@@ -290,6 +307,42 @@ function PanelInstitucional({ session }: PanelProps) {
       activo = false;
     };
   }, [intentoMetricas, periodo, session]);
+
+  useEffect(() => {
+    if (seccion !== "incidentes") {
+      return;
+    }
+    let activo = true;
+
+    apiFetch<{ incidentes: IncidenteActivo[] }>(
+      "/api/institucion/incidentes?estado=en_curso",
+      session,
+    )
+      .then((res) => {
+        if (activo) {
+          setIncidentesAbiertos(res.incidentes);
+          setErrorIncidentes(null);
+        }
+      })
+      .catch((err) => {
+        if (activo) {
+          setErrorIncidentes(
+            err instanceof Error
+              ? err.message
+              : "No se pudieron cargar los incidentes abiertos.",
+          );
+        }
+      })
+      .finally(() => {
+        if (activo) {
+          setCargandoIncidentes(false);
+        }
+      });
+
+    return () => {
+      activo = false;
+    };
+  }, [intentoIncidentes, seccion, session]);
 
   useEffect(() => {
     if (seccion !== "auditoria") {
@@ -362,6 +415,10 @@ function PanelInstitucional({ session }: PanelProps) {
       setCargandoLogs(true);
       setErrorLogs(null);
     }
+    if (key === "incidentes") {
+      setCargandoIncidentes(true);
+      setErrorIncidentes(null);
+    }
   }
 
   function recargarMetricas() {
@@ -374,6 +431,30 @@ function PanelInstitucional({ session }: PanelProps) {
     setCargandoLogs(true);
     setErrorLogs(null);
     setIntentoLogs((v) => v + 1);
+  }
+
+  function recargarIncidentes() {
+    setCargandoIncidentes(true);
+    setErrorIncidentes(null);
+    setIntentoIncidentes((v) => v + 1);
+  }
+
+  async function marcarResuelto(id: string) {
+    setResolviendoIncidente(id);
+    setErrorIncidentes(null);
+    try {
+      await apiFetch(`/api/institucion/incidentes/${encodeURIComponent(id)}`, session, {
+        method: "PATCH",
+      });
+      setIncidentesAbiertos((prev) => prev.filter((incidente) => incidente.id !== id));
+      recargarMetricas();
+    } catch (err) {
+      setErrorIncidentes(
+        err instanceof Error ? err.message : "No se pudo resolver el incidente.",
+      );
+    } finally {
+      setResolviendoIncidente(null);
+    }
   }
 
   function renderContenidoCargando() {
@@ -592,6 +673,83 @@ function PanelInstitucional({ session }: PanelProps) {
             </div>
           </div>
         )}
+
+        <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <div>
+              <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                <AlertTriangle className="text-amber-600" size={15} /> Incidentes en curso
+              </h3>
+              <p className="text-xs text-gray-500">
+                Cerrá el ciclo de vida cuando el incidente haya sido atendido.
+              </p>
+            </div>
+            <button
+              className="self-start sm:self-auto flex items-center gap-1 text-xs font-semibold text-gray-500 hover:text-gray-700 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 transition-colors"
+              onClick={() => recargarIncidentes()}
+            >
+              <RefreshCw size={12} /> Actualizar
+            </button>
+          </div>
+
+          {cargandoIncidentes && incidentesAbiertos.length === 0 && (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="animate-spin text-violet-600" size={20} />
+            </div>
+          )}
+
+          {errorIncidentes && (
+            <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-start gap-2 mb-3">
+              <X className="text-red-500 flex-shrink-0 mt-0.5" size={14} />
+              <p className="text-sm text-red-700">{errorIncidentes}</p>
+            </div>
+          )}
+
+          {!cargandoIncidentes && !errorIncidentes && incidentesAbiertos.length === 0 && (
+            <div className="bg-gray-50 border border-dashed border-gray-200 rounded-xl px-4 py-6 text-center">
+              <CheckCircle2 className="text-gray-400 mx-auto mb-2" size={20} />
+              <p className="text-sm text-gray-500 font-medium">
+                No hay incidentes en curso.
+              </p>
+            </div>
+          )}
+
+          {incidentesAbiertos.length > 0 && (
+            <div className="space-y-2">
+              {incidentesAbiertos.map((incidente) => (
+                <div
+                  className="border border-gray-100 rounded-xl px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
+                  key={incidente.id}
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-gray-900">
+                      Incidente #{incidente.id.slice(0, 8)}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {incidente.tipo.replace("_", " ")} · {formatearFecha(incidente.timestamp)}
+                      {incidente.lat !== null && incidente.lng !== null
+                        ? ` · ${incidente.lat.toFixed(2)}, ${incidente.lng.toFixed(2)}`
+                        : " · sin geolocalización"}
+                    </p>
+                  </div>
+                  <button
+                    aria-label={`Marcar resuelto el incidente ${incidente.id.slice(0, 8)}`}
+                    className="self-start sm:self-auto flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 transition-colors hover:bg-emerald-100 disabled:opacity-50"
+                    disabled={resolviendoIncidente === incidente.id}
+                    onClick={() => void marcarResuelto(incidente.id)}
+                  >
+                    {resolviendoIncidente === incidente.id ? (
+                      <Loader2 className="animate-spin" size={12} />
+                    ) : (
+                      <CheckCircle2 size={12} />
+                    )}
+                    Marcar resuelto
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     );
   }
@@ -856,6 +1014,7 @@ onClick={() => recargarLogs()}
                 <option value="">Todas las acciones</option>
                 <option value="consulta_dashboard">Consulta de dashboard</option>
                 <option value="consulta_auditoria">Consulta de auditoría</option>
+                <option value="resolver_incidente">Resolución de incidente</option>
                 <option value="verificar_qr">Verificación de QR</option>
               </select>
               <button

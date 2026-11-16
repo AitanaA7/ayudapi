@@ -5,6 +5,7 @@ import { AlertTriangle, Heart, Lock, Phone } from "lucide-react";
 import { AccesoMedicoDiscreto } from "@/components/emergency/acceso-medico-discreto";
 import { ActivarAlerta } from "@/components/emergency/activating-alert";
 import { PreviewNav } from "@/components/emergency/preview-nav";
+import { RegistrarEscaneo } from "@/components/emergency/registrar-escaneo";
 import { createAnonServerClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
@@ -97,6 +98,7 @@ export default async function EmergenciaPublicaPage({
 
   return (
     <div className="min-h-screen bg-[#0F1929] flex flex-col items-center" style={{ fontFamily: "Inter, sans-serif" }}>
+      <RegistrarEscaneo slug={slug} />
       <PreviewNav />
       <div className="w-full max-w-lg md:max-w-2xl px-3 sm:px-6 py-4 sm:py-8 transition-all">
         <div className="bg-red-600 rounded-t-2xl px-4 py-3.5 text-center shadow-md">

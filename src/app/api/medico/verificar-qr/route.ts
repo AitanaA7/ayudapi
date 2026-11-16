@@ -101,6 +101,7 @@ export async function GET(req: Request) {
   // Historial de escaneos del médico: queda registrado qué QR leyó y cuándo.
   await admin.from("escaneos_qr").insert({
     token_qr_id: tokenRow.id,
+    origen: "medico",
     paciente_id: perfil.id,
     usuario_id: user.id,
     rol_en_momento: "medico",

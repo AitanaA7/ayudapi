@@ -41,7 +41,12 @@ import { cn } from "@/lib/utils";
 // datos para que atrás/cambio de médico no muestre la ficha anterior.
 export const dynamic = "force-dynamic";
 
-type Tab = "resumen" | "medicacion" | "estudios";
+type Tab = "atencion" | "estudios" | "medicacion" | "resumen";
+
+interface AtencionGuardada {
+  atencion_id: string;
+  incidente_resuelto_id: string | null;
+}
 
 interface PacienteClinico {
   id: string;
@@ -120,6 +125,14 @@ function PanelPacienteClinico({ session, slug }: PanelProps) {
   const [error, setError] = useState<string | null>(null);
   const [showToast, setShowToast] = useState(false);
 
+  const [motivo, setMotivo] = useState("");
+  const [diagnostico, setDiagnostico] = useState("");
+  const [derivacion, setDerivacion] = useState("");
+  const [guardandoAtencion, setGuardandoAtencion] = useState(false);
+  const [errorAtencion, setErrorAtencion] = useState<string | null>(null);
+  const [atencionGuardada, setAtencionGuardada] =
+    useState<AtencionGuardada | null>(null);
+
   useEffect(() => {
     let activo = true;
 
@@ -173,7 +186,38 @@ function PanelPacienteClinico({ session, slug }: PanelProps) {
     { key: "resumen", label: "Resumen clínico", icon: <Activity size={13} /> },
     { key: "medicacion", label: "Medicación", icon: <Pill size={13} /> },
     { key: "estudios", label: "Estudios", icon: <FileText size={13} /> },
+    { key: "atencion", label: "Atención", icon: <Stethoscope size={13} /> },
   ];
+
+  async function guardarAtencion() {
+    if (!motivo.trim()) {
+      setErrorAtencion("El motivo de la atención es obligatorio.");
+      return;
+    }
+    setGuardandoAtencion(true);
+    setErrorAtencion(null);
+    try {
+      const res = await apiFetch<AtencionGuardada>("/api/medico/atenciones", session, {
+        body: JSON.stringify({
+          derivacion: derivacion.trim() || undefined,
+          diagnostico: diagnostico.trim() || undefined,
+          motivo: motivo.trim(),
+          slug,
+        }),
+        method: "POST",
+      });
+      setAtencionGuardada(res);
+      setMotivo("");
+      setDiagnostico("");
+      setDerivacion("");
+    } catch (err) {
+      setErrorAtencion(
+        err instanceof Error ? err.message : "No se pudo registrar la atención.",
+      );
+    } finally {
+      setGuardandoAtencion(false);
+    }
+  }
 
   const edad = calcularEdad(paciente?.fecha_nacimiento ?? null);
   const condiciones = [
@@ -525,6 +569,99 @@ function PanelPacienteClinico({ session, slug }: PanelProps) {
                         </p>
                       </div>
                     )}
+                  </div>
+                )}
+
+                {tab === "atencion" && (
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="font-bold text-gray-900 mb-1 flex items-center gap-2">
+                        <Stethoscope className="text-blue-600" size={15} /> Registrar
+                        atención médica
+                      </h3>
+                      <p className="text-xs text-gray-500">
+                        Al guardar, se registra la atención y se cierra el incidente
+                        en curso del paciente, si existe.
+                      </p>
+                    </div>
+
+                    {atencionGuardada && (
+                      <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 flex items-start gap-2">
+                        <Check className="text-emerald-600 flex-shrink-0 mt-0.5" size={15} />
+                        <div>
+                          <p className="text-sm font-bold text-emerald-800">
+                            Atención registrada
+                          </p>
+                          <p className="text-xs text-emerald-700">
+                            {atencionGuardada.incidente_resuelto_id
+                              ? "El incidente asociado quedó marcado como resuelto."
+                              : "No había un incidente en curso para este paciente."}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-xs font-semibold text-gray-600" htmlFor="atencion-motivo">
+                          Motivo de consulta
+                        </label>
+                        <input
+                          className="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          id="atencion-motivo"
+                          onChange={(e) => {
+                            setMotivo(e.target.value);
+                            setErrorAtencion(null);
+                          }}
+                          placeholder="Ej: dolor torácico, control, traumatismo"
+                          value={motivo}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-gray-600" htmlFor="atencion-diagnostico">
+                          Diagnóstico
+                        </label>
+                        <textarea
+                          className="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm min-h-20 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          id="atencion-diagnostico"
+                          onChange={(e) => setDiagnostico(e.target.value)}
+                          placeholder="Diagnóstico presuntivo o confirmado"
+                          value={diagnostico}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-gray-600" htmlFor="atencion-derivacion">
+                          Derivación
+                        </label>
+                        <input
+                          className="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          id="atencion-derivacion"
+                          onChange={(e) => setDerivacion(e.target.value)}
+                          placeholder="Ej: derivado a guardia, alta, observación"
+                          value={derivacion}
+                        />
+                      </div>
+                    </div>
+
+                    {errorAtencion && (
+                      <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-start gap-2">
+                        <AlertTriangle className="text-red-500 flex-shrink-0 mt-0.5" size={14} />
+                        <p className="text-sm text-red-700">{errorAtencion}</p>
+                      </div>
+                    )}
+
+                    <button
+                      className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-bold py-3 rounded-xl transition-colors text-sm"
+                      disabled={guardandoAtencion}
+                      onClick={() => void guardarAtencion()}
+                    >
+                      {guardandoAtencion ? (
+                        <Loader2 className="animate-spin" size={15} />
+                      ) : (
+                        <Check size={15} />
+                      )}
+                      Guardar atención
+                    </button>
                   </div>
                 )}
               </div>

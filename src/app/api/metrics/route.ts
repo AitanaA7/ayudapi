@@ -67,6 +67,8 @@ export async function GET(req: Request) {
     qrActivos,
     atencionesTotal,
     usuariosActivos,
+    escaneosPublicos,
+    escaneosMedicos,
   ] = await Promise.all([
     countRows(admin, "incidentes"),
     countRows(admin, "incidentes", { column: "estado", value: "resuelto" }),
@@ -75,10 +77,19 @@ export async function GET(req: Request) {
     countRows(admin, "tokens_qr", { column: "activo", value: true }),
     countRows(admin, "atenciones"),
     countRows(admin, "perfiles_paciente", { column: "qr_activo", value: true }),
+    countRows(admin, "escaneos_qr", { column: "origen", value: "publico" }),
+    countRows(admin, "escaneos_qr", { column: "origen", value: "medico" }),
   ]);
 
   const gauge = (name: string, help: string, value: number) =>
     [`# HELP ${name} ${help}`, `# TYPE ${name} gauge`, `${name} ${value}`].join("\n");
+
+  const labeledGauge = (name: string, help: string, values: Array<[string, number]>) =>
+    [
+      `# HELP ${name} ${help}`,
+      `# TYPE ${name} gauge`,
+      ...values.map(([label, value]) => `${name}{origen="${label}"} ${value}`),
+    ].join("\n");
 
   const body =
     [
@@ -89,6 +100,14 @@ export async function GET(req: Request) {
       gauge("ayudapi_qr_activos", "Tokens QR actualmente activos", qrActivos),
       gauge("ayudapi_atenciones_total", "Total histórico de atenciones médicas", atencionesTotal),
       gauge("ayudapi_usuarios_activos", "Perfiles de paciente con QR activo", usuariosActivos),
+      labeledGauge(
+        "ayudapi_escaneos_por_origen",
+        "Escaneos QR históricos según el origen del acceso",
+        [
+          ["publico", escaneosPublicos],
+          ["medico", escaneosMedicos],
+        ],
+      ),
     ].join("\n\n") + "\n";
 
   return new Response(body, {
