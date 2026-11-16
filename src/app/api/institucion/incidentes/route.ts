@@ -5,6 +5,7 @@ import { createAdminServerClient } from "@/lib/supabase/server";
 export const runtime = "nodejs";
 
 const ESTADOS_VALIDOS = new Set(["cancelado", "en_curso", "enviado", "resuelto"]);
+const ESTADOS_ACTIVOS = ["enviado", "en_curso"] as const;
 const LIMITE = 100;
 
 interface IncidenteListado {
@@ -34,7 +35,9 @@ export async function GET(req: Request) {
     .order("timestamp", { ascending: false })
     .limit(LIMITE);
 
-  if (estado !== "todos") {
+  if (estado === "en_curso") {
+    query = query.in("estado", [...ESTADOS_ACTIVOS]);
+  } else if (estado !== "todos") {
     query = query.eq("estado", estado);
   }
 

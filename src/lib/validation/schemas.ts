@@ -42,7 +42,7 @@ export const MENSAJE_INSTITUCION_NOMBRE =
 export const MENSAJE_INSTITUCION_CUIT =
   "El CUIT es obligatorio: 11 dígitos con dígito verificador AFIP válido (ej: 30-12345678-9).";
 export const MENSAJE_INSTITUCION_DOCUMENTACION =
-  "La documentación de respaldo es obligatoria: al menos una referencia (habilitación, inscripción RENIS, etc.).";
+  "La documentación de respaldo no es válida. Ingresá una referencia (habilitación, inscripción RENIS, etc.).";
 export const MENSAJE_INSTITUCION_INVITACION =
   "El código de invitación institucional es obligatorio y no es válido. Solicitá el alta a un administrador.";
 export const MENSAJE_CUIT_DUPLICADO =
@@ -137,7 +137,7 @@ export const institucionAltaSchema = z.strictObject({
   codigo_invitacion: z.string({ error: MENSAJE_INSTITUCION_INVITACION }).trim().min(1, MENSAJE_INSTITUCION_INVITACION),
   cuit: cuitSchema,
   direccion: z.string().trim().max(200, "La dirección no puede superar 200 caracteres.").optional(),
-  documentacion: z.array(institucionDocumentacionSchema).min(1, MENSAJE_INSTITUCION_DOCUMENTACION),
+  documentacion: z.array(institucionDocumentacionSchema).optional().default([]),
   email_contacto: z.string().trim().email("El email de contacto no es válido.").optional(),
   nombre: z
     .string({ error: MENSAJE_INSTITUCION_NOMBRE })

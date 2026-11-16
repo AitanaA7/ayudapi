@@ -18,6 +18,8 @@ interface IncidenteResuelto {
   tipo: string;
 }
 
+const ESTADOS_ACTIVOS = ["enviado", "en_curso"] as const;
+
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -33,13 +35,33 @@ export async function PATCH(
   }
 
   const admin = createAdminServerClient();
-  const resueltoEn = new Date().toISOString();
 
+  const { data: actual, error: actualError } = await admin
+    .from("incidentes")
+    .select("id, estado")
+    .eq("id", id)
+    .maybeSingle()
+    .overrideTypes<{ estado: string; id: string } | null>();
+
+  if (actualError) {
+    return jsonError(actualError.message, 500, actualError.code);
+  }
+  if (!actual) {
+    return jsonError("Incidente no encontrado.", 404);
+  }
+  if (!ESTADOS_ACTIVOS.includes(actual.estado as (typeof ESTADOS_ACTIVOS)[number])) {
+    return jsonError(
+      `Solo se puede resolver un incidente activo (estado actual: ${actual.estado}).`,
+      409,
+    );
+  }
+
+  const resueltoEn = new Date().toISOString();
   const { data, error } = await admin
     .from("incidentes")
     .update({ estado: "resuelto", resuelto_en: resueltoEn })
     .eq("id", id)
-    .eq("estado", "en_curso")
+    .in("estado", [...ESTADOS_ACTIVOS])
     .select("id, tipo, estado, timestamp, resuelto_en")
     .maybeSingle()
     .overrideTypes<IncidenteResuelto | null>();
@@ -49,29 +71,13 @@ export async function PATCH(
   }
 
   if (!data) {
-    const { data: actual, error: actualError } = await admin
-      .from("incidentes")
-      .select("id, estado")
-      .eq("id", id)
-      .maybeSingle()
-      .overrideTypes<{ estado: string; id: string } | null>();
-
-    if (actualError) {
-      return jsonError(actualError.message, 500, actualError.code);
-    }
-    if (!actual) {
-      return jsonError("Incidente no encontrado.", 404);
-    }
-    return jsonError(
-      `Solo se puede resolver un incidente en curso (estado actual: ${actual.estado}).`,
-      409,
-    );
+    return jsonError("No se pudo resolver el incidente.", 409);
   }
 
   await registrarConsultaAuditoria({
     accion: "resolver_incidente",
     detalles: {
-      estado_anterior: "en_curso",
+      estado_anterior: actual.estado,
       estado_nuevo: "resuelto",
       incidente_id: data.id,
       resuelto_en: data.resuelto_en,

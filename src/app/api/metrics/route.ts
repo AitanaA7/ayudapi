@@ -62,7 +62,7 @@ export async function GET(req: Request) {
   const [
     incidentesTotal,
     incidentesResueltos,
-    incidentesEnCurso,
+    incidentesEnCursoResult,
     escaneosTotal,
     qrActivos,
     atencionesTotal,
@@ -72,7 +72,10 @@ export async function GET(req: Request) {
   ] = await Promise.all([
     countRows(admin, "incidentes"),
     countRows(admin, "incidentes", { column: "estado", value: "resuelto" }),
-    countRows(admin, "incidentes", { column: "estado", value: "en_curso" }),
+    admin
+      .from("incidentes")
+      .select("*", { count: "exact", head: true })
+      .in("estado", ["enviado", "en_curso"]),
     countRows(admin, "escaneos_qr"),
     countRows(admin, "tokens_qr", { column: "activo", value: true }),
     countRows(admin, "atenciones"),
@@ -80,6 +83,14 @@ export async function GET(req: Request) {
     countRows(admin, "escaneos_qr", { column: "origen", value: "publico" }),
     countRows(admin, "escaneos_qr", { column: "origen", value: "medico" }),
   ]);
+
+  if (incidentesEnCursoResult.error) {
+    console.error(
+      "[/api/metrics] error contando incidentes en curso:",
+      incidentesEnCursoResult.error.message,
+    );
+  }
+  const incidentesEnCurso = incidentesEnCursoResult.count ?? 0;
 
   const gauge = (name: string, help: string, value: number) =>
     [`# HELP ${name} ${help}`, `# TYPE ${name} gauge`, `${name} ${value}`].join("\n");

@@ -114,7 +114,7 @@ export async function POST(req: Request) {
     .from("incidentes")
     .select("id")
     .eq("paciente_id", perfil.id)
-    .eq("estado", "en_curso")
+    .in("estado", ["enviado", "en_curso"])
     .order("timestamp", { ascending: false })
     .limit(1)
     .maybeSingle()
@@ -153,7 +153,7 @@ export async function POST(req: Request) {
       .from("incidentes")
       .update({ estado: "resuelto", resuelto_en: resueltoEn })
       .eq("id", incidente.id)
-      .eq("estado", "en_curso");
+      .in("estado", ["enviado", "en_curso"]);
 
     if (cierreError) {
       return jsonError(
