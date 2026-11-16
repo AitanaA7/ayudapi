@@ -333,7 +333,7 @@ begin
   values (
     v_paciente_id,
     'emergencia_qr',
-    'enviado',
+    'en_curso',
     p_lat,
     p_lng,
     case when p_exacta and p_lat is not null and p_lng is not null 
@@ -635,7 +635,7 @@ begin
     'resumen', jsonb_build_object(
       'incidentes', (select count(*)::int from public.incidentes i where i.timestamp >= v_desde),
       'resueltos',  (select count(*)::int from public.incidentes i where i.timestamp >= v_desde and i.estado = 'resuelto'),
-      'en_curso',   (select count(*)::int from public.incidentes i where i.timestamp >= v_desde and i.estado = 'en_curso'),
+      'en_curso',   (select count(*)::int from public.incidentes i where i.timestamp >= v_desde and i.estado in ('en_curso', 'enviado')),
       'escaneos',   (select count(*)::int from public.escaneos_qr e where e.creado_en >= v_desde),
       'atenciones', (select count(*)::int from public.atenciones a where a.fecha_atencion >= v_desde),
       'registros_medicos', (select count(*)::int from public.registros_medicos r where r.creado_en >= v_desde)
